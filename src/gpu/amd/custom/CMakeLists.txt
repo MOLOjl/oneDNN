@@ -14,23 +14,24 @@
 # limitations under the License.
 #===============================================================================
 
-file(GLOB_RECURSE SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 
-set(OBJ_LIB ${LIB_PACKAGE_NAME}_sycl_amd)
+set(OBJ_LIB ${LIB_PACKAGE_NAME}_sycl_amd_custom)
+
 add_library(${OBJ_LIB} OBJECT ${SOURCES})
 
+enable_language(HIP)
 
-set_target_properties(${OBJ_LIB} PROPERTIES COMPILE_DEFINITIONS "$<TARGET_PROPERTY:rocBLAS::rocBLAS,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:MIOpen::MIOpen,INTERFACE_COMPILE_DEFINITIONS>"
-        COMPILE_OPTIONS "$<TARGET_PROPERTY:rocBLAS::rocBLAS,INTERFACE_COMPILE_OPTIONS>;$<TARGET_PROPERTY:MIOpen::MIOpen,INTERFACE_COMPILE_OPTIONS>")
+set(CMAKE_C_COMPILER hipcc)
+set(CMAKE_CXX_COMPILER hipcc)
+set(CMAKE_C_FLAGS "")
+set(CMAKE_CXX_FLAGS "")
 
-target_include_directories(${OBJ_LIB} PRIVATE $<TARGET_PROPERTY:MIOpen::MIOpen,INTERFACE_INCLUDE_DIRECTORIES> $<TARGET_PROPERTY:rocBLAS::rocBLAS,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(${OBJ_LIB} PRIVATE ${HIP_INCLUDE_DIR})
+# message(FATAL_ERROR "${HIP_INCLUDE_DIR}")
 
 add_library(${OBJ_LIB}_interface INTERFACE)
-target_link_libraries(${OBJ_LIB}_interface INTERFACE rocBLAS::rocBLAS MIOpen::MIOpen)
+target_link_libraries(${OBJ_LIB}_interface INTERFACE ${HIP_LIBRARY})
+
 set_property(GLOBAL APPEND PROPERTY DNNL_LIB_DEPS $<TARGET_OBJECTS:${OBJ_LIB}>)
-
 set(${LIB_PACKAGE_NAME}_INTERFACE ${${LIB_PACKAGE_NAME}_INTERFACE} ${OBJ_LIB}_interface PARENT_SCOPE)
-
-add_subdirectory(custom)

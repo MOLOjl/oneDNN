@@ -189,6 +189,7 @@ struct component_t {
         group_normalization = 1 << 21,
         graph = 1 << 22,
         gemm_api = 1 << 23,
+        transpose = 1 << 24,
         all = (uint32_t)-1,
     };
 };

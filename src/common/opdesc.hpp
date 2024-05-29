@@ -25,6 +25,14 @@
 namespace dnnl {
 namespace impl {
 
+struct transpose_desc_t {
+    primitive_kind_t primitive_kind;
+    memory_desc_t src_desc;
+    memory_desc_t dst_desc;
+    dnnl_dim_t dim1; 
+    dnnl_dim_t dim2;
+};
+
 struct reorder_desc_t {
     primitive_kind_t primitive_kind;
     const memory_desc_t *src_md;
@@ -614,6 +622,7 @@ struct op_desc_t {
         resampling_desc_t resampling;
         zero_pad_desc_t zero_pad;
         reduction_desc_t reduction;
+        transpose_desc_t transpose;
     };
 
 #define DECL_CTOR_AND_CONVERTERS(c_type) \
@@ -640,6 +649,7 @@ struct op_desc_t {
     DECL_CTOR_AND_CONVERTERS(gemm_desc_t);
     DECL_CTOR_AND_CONVERTERS(concat_desc_t);
     DECL_CTOR_AND_CONVERTERS(reorder_desc_t);
+    DECL_CTOR_AND_CONVERTERS(transpose_desc_t);
     DECL_CTOR_AND_CONVERTERS(sum_desc_t);
     DECL_CTOR_AND_CONVERTERS(binary_desc_t);
     DECL_CTOR_AND_CONVERTERS(matmul_desc_t);

@@ -86,6 +86,7 @@ bool key_t::operator==(const key_t &rhs) const {
             CASE(shuffle)
             CASE(softmax)
             CASE(sum)
+            CASE(transpose)
             CASE(zero_pad)
             default: assert(!"unknown primitive kind");
         }
@@ -695,6 +696,20 @@ size_t get_desc_hash(const sum_desc_t &desc) {
     // Array of mds
     seed = get_array_hash(seed, desc.src_mds);
     // Combined hash for sum desc
+    return seed;
+}
+
+size_t get_desc_hash(const transpose_desc_t &desc) {
+    size_t seed = 0;
+    // Kinds
+    seed = hash_combine(seed, static_cast<size_t>(desc.primitive_kind));
+    // Memory descriptors
+    seed = hash_combine(seed, get_md_hash(desc.src_desc));
+    seed = hash_combine(seed, get_md_hash(desc.dst_desc));
+    // Axis
+    seed = hash_combine(seed, desc.dim1);
+    seed = hash_combine(seed, desc.dim2);
+    // Combined hash for softmax desc
     return seed;
 }
 

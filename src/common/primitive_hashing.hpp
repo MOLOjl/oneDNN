@@ -94,6 +94,7 @@ size_t get_desc_hash(const rnn_desc_t &desc);
 size_t get_desc_hash(const shuffle_desc_t &desc);
 size_t get_desc_hash(const softmax_desc_t &desc);
 size_t get_desc_hash(const sum_desc_t &desc);
+size_t get_desc_hash(const transpose_desc_t &desc);
 size_t get_desc_hash(const zero_pad_desc_t &desc);
 
 template <typename T>
@@ -183,6 +184,7 @@ struct hash<dnnl::impl::primitive_hashing::key_t> {
             CASE(softmax)
             CASE(sum)
             CASE(zero_pad)
+            CASE(transpose)
             default: assert(!"unknown primitive_kind");
         }
             // clang-format on

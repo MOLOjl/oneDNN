@@ -1361,6 +1361,24 @@ dnnl_status_t DNNL_API dnnl_memory_destroy(dnnl_memory_t memory);
 /// @addtogroup dnnl_api_primitives
 /// @{
 
+/// @addtogroup dnnl_api_transpose
+/// @{
+
+/// Creates a primitive descriptor for a transpose primitive.
+///
+/// @param transpose_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_transpose_primitive_desc_create(
+        dnnl_primitive_desc_t *transpose_primitive_desc,
+        dnnl_engine *engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        dnnl_dim_t dim1, dnnl_dim_t dim2);
+
+/// @} dnnl_api_transpose
+
 /// @addtogroup dnnl_api_reorder
 /// @{
 

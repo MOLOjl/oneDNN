@@ -33,6 +33,7 @@
 #include "gpu/amd/miopen_pooling.hpp"
 #include "gpu/amd/miopen_reduction.hpp"
 #include "gpu/amd/miopen_softmax.hpp"
+#include "gpu/amd/hip_transpose.hpp"
 #include "gpu/amd/sycl_hip_compat.hpp"
 #include "gpu/amd/sycl_hip_engine.hpp"
 #include "gpu/amd/sycl_hip_scoped_context.hpp"
@@ -167,6 +168,8 @@ using namespace dnnl::impl::data_type;
 
 // clang-format off
 constexpr dnnl::impl::impl_list_item_t sycl_hip_impl_list[] = {
+        // Transpose
+        INSTANCE(hip_transpose_t)
         // Binary
         INSTANCE(miopen_binary_t)
         // Elementwise
