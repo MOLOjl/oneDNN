@@ -42,8 +42,9 @@ status_t ocl_gpu_device_info_t::init_arch(engine_t *engine) {
             = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &err);
     OCL_CHECK(err);
 
-    init_gpu_hw_info(engine, device, context, gpu_arch_, stepping_id_,
-            native_extensions_, mayiuse_systolic_, mayiuse_ngen_kernels_);
+    init_gpu_hw_info(engine, device, context, ip_version_, gpu_arch_,
+            stepping_id_, native_extensions_, mayiuse_systolic_,
+            mayiuse_ngen_kernels_);
 
     err = clReleaseContext(context);
     OCL_CHECK(err);
@@ -149,6 +150,12 @@ status_t ocl_gpu_device_info_t::init_attributes(engine_t *engine) {
             sizeof(max_wg_size), &max_wg_size, nullptr);
     OCL_CHECK(err);
     max_wg_size_ = max_wg_size;
+
+    cl_ulong mem_cache_size;
+    err = clGetDeviceInfo(device, CL_DEVICE_GLOBAL_MEM_CACHE_SIZE,
+            sizeof(mem_cache_size), &mem_cache_size, nullptr);
+    OCL_CHECK(err);
+    l3_cache_size_ = mem_cache_size;
 
 #ifdef cl_intel_unified_shared_memory
     cl_device_unified_shared_memory_capabilities_intel

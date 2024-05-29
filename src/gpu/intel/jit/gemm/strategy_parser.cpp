@@ -60,7 +60,9 @@ AddressBase getAddressBase(char c) {
     switch (c) {
         case 'a': return AddressBase::createA64(true);
         case 'c': return AddressBase::createCC(0);
+        case 'l': return AddressBase::createSLM();
         case 'm': return AddressBase::createSC(0);
+        case 'r': return AddressBase {};
         case 's': return AddressBase::createBTS(0);
         default: throw std::runtime_error("Unknown address space.");
     }
@@ -223,7 +225,7 @@ void parseStrategy(const char *str, HW hw, const GEMMProblem &problem,
     strategy.B_prefetch.padded |= isPacked(problem.B.layout);
 
     strategy.unroll[LoopK] = 1;
-    strategy.checkAdd32 = !native64Bit(hw) || (hw >= HW::XeHPC);
+    strategy.checkAdd32 = !native64Bit(hw) || (hw == HW::XeHPC);
     strategy.altCRemainder |= (strategy.C.accessType == AccessType::Block)
             || strategy.kParallel;
 
@@ -407,7 +409,7 @@ void parseStrategy(const char *str, HW hw, const GEMMProblem &problem,
             strategy.arbitrationMode
                     = ngen::ThreadArbitrationMode::RoundRobinOnStall;
         else if (mod == "l2d")
-            strategy.optAlignAB = GEMMStrategy::AlignBlock2D;
+            strategy.optAlignAB2D = true;
         else if (mod == "nq") {
             strategy.A.noExtraPad = strategy.A_prefetch.noExtraPad = true;
             strategy.B.noExtraPad = strategy.B_prefetch.noExtraPad = true;
@@ -539,7 +541,7 @@ void adjustStrategy(HW hw, const GEMMProblem &problem, GEMMStrategy &strategy,
             && !isPacked(problem.C.layout);
 
     // Notify kernel generator to downgrade block 2D prefetches if block 2D cannot be used.
-    if (tags && strategy.optAlignAB != GEMMStrategy::AlignBlock2D) {
+    if (tags && !strategy.optAlignAB2D) {
         bool block2DA = false, block2DB = false;
         while (*tags) {
             block2DA |= (*tags == kcatalog::ReqBlock2DA);

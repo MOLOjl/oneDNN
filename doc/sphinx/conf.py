@@ -106,7 +106,10 @@ imgmath_latex_preamble = '''\\usepackage[T1]{fontenc}
 \\newcommand{\\diffdstiterc}{\\operatorname{diff\\_dst\\_iter\\_c}}
 \\newcommand{\\diffgamma}{\\operatorname{diff\\_\\gamma}}
 \\newcommand{\\diffbeta}{\\operatorname{diff\\_\\beta}}
-\\newcommand{\\workspace}{\\operatorname{workspace}}'''
+\\newcommand{\\workspace}{\\operatorname{workspace}}
+\\newcommand{\\srcshape}{\\operatorname{src\\_\\shape}}
+\\newcommand{\\dstshape}{\\operatorname{dst\\_\\shape}}'''
+
 
 
 
@@ -187,7 +190,7 @@ def setup(app):
 
 def fixFileNameRefs(app, env, docnames):
 
-    replacements = {"page_dev_guide": "dev_guide", "group_Dnnl":"group_dnnl"}
+    replacements = {"page_dev_guide":"dev_guide", "group_Dnnl":"group_dnnl", "brgemm_pack_B":"brgemm_pack_b"}
     targetDir = "rst"
 
     fileExtension = ".rst"

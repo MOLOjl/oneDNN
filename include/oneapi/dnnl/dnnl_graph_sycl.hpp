@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2020-2022 Intel Corporation
+* Copyright 2020-2024 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 *******************************************************************************/
+
+/// @file
+/// Graph SYCL interop API
 
 #ifndef ONEAPI_DNNL_DNNL_GRAPH_SYCL_HPP
 #define ONEAPI_DNNL_DNNL_GRAPH_SYCL_HPP
@@ -32,10 +35,14 @@
 #include "oneapi/dnnl/dnnl_graph_sycl.h"
 /// @endcond
 
-/// @addtogroup dnnl_graph_api
+/// @addtogroup dnnl_api
 /// @{
 
 namespace dnnl {
+
+/// @addtogroup dnnl_graph_api
+/// @{
+
 namespace graph {
 
 /// @addtogroup dnnl_graph_api_interop Runtime interoperability API
@@ -44,7 +51,6 @@ namespace graph {
 
 /// @addtogroup dnnl_graph_api_sycl_interop SYCL interoperability API
 /// API extensions to interact with the underlying SYCL run-time.
-///
 /// @{
 
 /// SYCL interoperability namespace
@@ -117,8 +123,11 @@ inline sycl::event execute(compiled_partition &c_partition, stream &astream,
 /// @} dnnl_graph_api_interop
 
 } // namespace graph
-} // namespace dnnl
 
 /// @} dnnl_graph_api
+
+} // namespace dnnl
+
+/// @} dnnl_api
 
 #endif

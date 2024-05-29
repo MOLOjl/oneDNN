@@ -16,18 +16,18 @@ Returns `1` if any submitted tests returned status `FAILED` or `UNIMPLEMENTED`,
 
 ## Running Tests
 
-oneDNN comes with its own testing infrastructure enabled through CMake. Tests
-can be executed via the command:
+oneDNN comes with its own testing infrastructure enabled through CMake.
+If the project is built with `DNNL_BUILD_TESTS` set to `TRUE`, then Cmake will
+add test targets automatically.
+Targets can be triggered by the following command:
 ``` sh
-    make test_<test-name>
+    ctest [-R ".*benchdnn.*"]
 ```
-This instructs CMake to build a deployable project and run the specific test.
-
-These tests target specific oneDNN features and are based on benchdnn
-configurable executions.
+, where the content in brackets is optional and limits testing to benchdnn only.
+The pattern can be extended further for finer granularity.
 
 The available tests can be found in the oneDNN directory:
-tests/benchdnn/inputs/<driver>/<test-name>.
+tests/benchdnn/inputs/
 
 ## Glossary
 
@@ -129,15 +129,15 @@ problem):
   reproducer line might be reported. The execution was stopped before creating
   any library objects.
 * `SKIPPED`. Same as `LISTED` but the execution was stopped intentionally for
-  the reason given in the short description, e.g. `CASE_NOT_SUPPORTED` or
-  `SKIP_IMPL_HIT`.
+  the reason given in the short description, e.g. "Case not supported" or
+  "Skip-impl option hit".
   Note: Nvidia backend is treated specially. See a note below.
 * `INVALID_ARGUMENTS`. It means that the library API returned an error due to
   incorrect argument values. It is treated as a failure.
 * `UNIMPLEMENTED`. It means that the library does not have an implementation for
   a requested problem. It is treated as a failure.
   Note: All Nvidia backend `unimplemented` status errors are always treated as
-  `SKIPPED (CASE_NOT_SUPPORTED)` to simplify validation.
+  `SKIPPED "(Case not supported)"` to simplify validation.
 * `INITIALIZED`. It means that a problem was initialized, and the primitive
   creation was successful, but there was no execution call or validation.
 * `EXECUTED`. It means that a problem was run, and the library execution call

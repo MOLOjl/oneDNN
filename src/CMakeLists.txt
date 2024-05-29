@@ -79,6 +79,13 @@ if(DNNL_EXPERIMENTAL_SPARSE)
     message(STATUS "Experimental functionality for sparse domain is enabled")
 endif()
 
+if(DNNL_EXPERIMENTAL_UKERNEL)
+    if(DNNL_TARGET_ARCH STREQUAL "ARCH_GENERIC")
+        message(FATAL_ERROR "ukernel API does not support generic architecture.")
+    endif()
+    message(STATUS "Experimental functionality for ukernels is enabled")
+endif()
+
 if(DNNL_EXPERIMENTAL_PROFILING)
     message(STATUS "Experimental profiling capabilities are enabled")
 endif()
@@ -122,6 +129,10 @@ if(NOT DNNL_GPU_RUNTIME STREQUAL "NONE")
     add_subdirectory(gpu)
 endif()
 
+if(DNNL_WITH_SYCL OR DNNL_GPU_RUNTIME STREQUAL "OCL")
+    add_subdirectory(xpu)
+endif()
+
 if(DNNL_WITH_SYCL)
     # Enable linking SYCL kernels.
     if(DNNL_SYCL_CUDA)
@@ -134,7 +145,7 @@ endif()
 if(ONEDNN_BUILD_GRAPH)
     message(STATUS "Graph component is enabled")
 
-    if (NOT DNNL_GPU_VENDOR STREQUAL "INTEL")
+    if (NOT DNNL_GPU_RUNTIME STREQUAL "NONE" AND NOT DNNL_GPU_VENDOR STREQUAL "INTEL")
         message(FATAL_ERROR "Graph API does not support ${DNNL_GPU_VENDOR} GPU. "
             "Either disable Graph API with ONEDNN_BUILD_GRAPH=OFF or change GPU "
             "vendor to INTEL with ONEDNN_GPU_VENDOR=INTEL.")
@@ -185,7 +196,7 @@ add_library(${LIB_PACKAGE_NAME} ${DNNL_LIBRARY_TYPE}
     ${VERSION_RESOURCE_FILE} ${HEADERS_ROOT} ${HEADERS_SUBDIR} ${LIB_DEPS})
 
 # LINK_PRIVATE for cmake 2.8.11 compatibility
-target_link_libraries(${LIB_PACKAGE_NAME} LINK_PRIVATE ${${LIB_PACKAGE_NAME}_INTERFACE} ${STATIC_LIB_DEPS} ${SHARED_LIB_DEPS})
+target_link_libraries(${LIB_PACKAGE_NAME} LINK_PRIVATE ${STATIC_LIB_DEPS} ${SHARED_LIB_DEPS})
 
 set_property(TARGET ${LIB_PACKAGE_NAME} PROPERTY OUTPUT_NAME ${DNNL_LIBRARY_NAME})
 set_property(TARGET ${LIB_PACKAGE_NAME} PROPERTY VERSION "${DNNL_VERSION_MAJOR}.${DNNL_VERSION_MINOR}")

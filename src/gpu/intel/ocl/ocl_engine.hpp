@@ -34,16 +34,21 @@ public:
 
     size_t count() const override {
         std::vector<cl_device_id> ocl_devices;
-        status_t status = get_ocl_devices(&ocl_devices, CL_DEVICE_TYPE_GPU);
+        status_t status
+                = xpu::ocl::get_devices(&ocl_devices, CL_DEVICE_TYPE_GPU);
         if (status != status::success) return status;
         return ocl_devices.size();
     }
 
     status_t engine_create(engine_t **engine, size_t index) const override {
+#ifdef DNNL_WITH_SYCL
+        gpu_error_not_expected() << "This interface is not for use with SYCL";
+        return status::runtime_error;
+#endif
         status_t status;
         std::vector<cl_device_id> ocl_devices;
 
-        status = get_ocl_devices(&ocl_devices, CL_DEVICE_TYPE_GPU);
+        status = xpu::ocl::get_devices(&ocl_devices, CL_DEVICE_TYPE_GPU);
         VERROR_ENGINE(
                 status == status::success, status, "no ocl devices found");
 

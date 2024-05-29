@@ -284,6 +284,13 @@ void skip_unimplemented_prb(const prb_t *prb, res_t *res) {
     skip_unimplemented_data_type({prb->dt}, prb->dir, res);
     skip_unimplemented_sum_po(prb->attr, res, dnnl_eltwise, prb->dt);
     skip_unimplemented_prelu_po(prb->attr, res, dnnl_eltwise);
+
+    if (is_gpu() && (prb->dt == dnnl_f8_e5m2 || prb->dt == dnnl_f8_e4m3)
+            && prb->dir == BWD_D) {
+        res->state = SKIPPED;
+        res->reason = skip_reason::data_type_not_supported;
+        return;
+    }
 }
 
 void skip_invalid_prb(const prb_t *prb, res_t *res) {
@@ -300,7 +307,8 @@ void skip_invalid_prb(const prb_t *prb, res_t *res) {
         default: break;
     };
     if (is_invalid) {
-        res->state = SKIPPED, res->reason = INVALID_CASE;
+        res->state = SKIPPED;
+        res->reason = skip_reason::invalid_case;
         return;
     }
 
@@ -308,7 +316,8 @@ void skip_invalid_prb(const prb_t *prb, res_t *res) {
     // let forward path overwrite it.
     is_invalid = (prb->dir & FLAG_BWD) && !prb->use_dst() && prb->inplace;
     if (is_invalid) {
-        res->state = SKIPPED, res->reason = INVALID_CASE;
+        res->state = SKIPPED;
+        res->reason = skip_reason::invalid_case;
         return;
     }
 

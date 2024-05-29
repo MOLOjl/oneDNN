@@ -32,19 +32,19 @@ class ir_context_t;
 #ifdef DNNL_DEV_MODE
 ir_utils::debug_profiler_t &get_trace_profiler();
 inline void trace_start() {
-    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_TRACE)
+    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_PERF)
         get_trace_profiler().start();
 }
 inline void trace_reset() {
-    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_TRACE)
+    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_PERF)
         get_trace_profiler().reset();
 }
 inline void trace_stamp(const char *pass_name) {
-    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_TRACE)
+    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_PERF)
         get_trace_profiler().stamp(pass_name);
 }
 inline void trace_stop(const char *pass_name) {
-    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_TRACE)
+    if (get_verbose(verbose_t::debuginfo) >= ir_utils::LOG_PERF)
         get_trace_profiler().stop(pass_name);
 }
 inline void trace_perf() {
@@ -60,10 +60,10 @@ inline void trace_perf() {};
 
 #if defined(DNNL_DEV_MODE)
 void trace_pass(
-        const char *pass_name, const stmt_t &stmt, ir_context_t &ir_ctx);
+        const char *pass_name, const stmt_t &stmt, const ir_context_t &ir_ctx);
 #else
-inline void trace_pass(
-        const char *pass_name, const stmt_t &stmt, ir_context_t &ir_ctx) {};
+inline void trace_pass(const char *pass_name, const stmt_t &stmt,
+        const ir_context_t &ir_ctx) {};
 #endif
 
 } // namespace jit

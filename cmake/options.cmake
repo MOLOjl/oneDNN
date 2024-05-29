@@ -198,6 +198,11 @@ option(DNNL_EXPERIMENTAL_SPARSE
     independetly from DNNL_EXPERIMENTAL."
     OFF) # disabled by default
 
+option(DNNL_EXPERIMENTAL_UKERNEL
+    "Enable experimental functionality for ukernels. This option works
+    independetly from DNNL_EXPERIMENTAL."
+    OFF) # disabled by default
+
 option(DNNL_EXPERIMENTAL_PROFILING
     "Enable experimental profiling capabilities. This option works independently
     from DNNL_EXPERIMENTAL."
@@ -269,10 +274,15 @@ if(NOT "${DNNL_GPU_RUNTIME}" MATCHES "^(OCL|NONE|DPCPP|SYCL)$")
     message(FATAL_ERROR "Unsupported GPU runtime: ${DNNL_GPU_RUNTIME}")
 endif()
 
-set(DNNL_GPU_VENDOR "INTEL" CACHE STRING
-    "specifies target GPU vendor for GPU engines.
-    Can be INTEL (default) or NVIDIA.")
-if(NOT "${DNNL_GPU_VENDOR}" MATCHES "^(INTEL|NVIDIA|AMD)$")
+set(DNNL_GPU_VENDOR "NONE" CACHE STRING
+    "When DNNL_GPU_RUNTIME is not NONE DNNL_GPU_VENDOR specifies target GPU
+    vendor for GPU engines. Can be INTEL (default), NVIDIA or AMD.")
+
+if(NOT DNNL_GPU_RUNTIME STREQUAL "NONE" AND DNNL_GPU_VENDOR STREQUAL "NONE")
+    set(DNNL_GPU_VENDOR "INTEL")
+endif()
+
+if(NOT "${DNNL_GPU_VENDOR}" MATCHES "^(NONE|INTEL|NVIDIA|AMD)$")
     message(FATAL_ERROR "Unsupported GPU vendor: ${DNNL_GPU_VENDOR}")
 endif()
 

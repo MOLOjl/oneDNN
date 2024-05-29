@@ -42,6 +42,9 @@
 
 #include "gpu/intel/jit/emulation.hpp"
 
+#include "gpu/intel/microkernels/entrance_agent.hpp"
+#include "gpu/intel/microkernels/package.hpp"
+
 #include <array>
 #include <complex>
 #include <cstdint>
@@ -64,6 +67,7 @@ public:
         invalid = 0,
         f16 = 0x01000201,
         f32 = 0x01010402,
+        f64 = 0x01020803,
         u4 = 0x21840100,
         s4 = 0x21850100,
         u8 = 0x01840100,
@@ -99,7 +103,7 @@ public:
         return (val == Type::u8) || (val == Type::s8);
     }
     constexpr bool isF8() const {
-        return (val == Type::bf8 || val == Type::hf8);
+        return (val == Type::bf8) || (val == Type::hf8);
     }
     constexpr bool isSigned() const {
         return (uint32_t(val) & 0x810000) != 0x800000;
@@ -115,8 +119,9 @@ public:
         return paddedSize();
     }
     constexpr int perByte() const { return isInt4() ? 2 : 1; }
-
-    void subByteCheck() const;
+    void subByteCheck() const {
+        if (isInt4()) stub();
+    }
 
     constexpr Type arithmetic() const {
         return (val == tf32) ? Type(f32) : real();
@@ -444,8 +449,9 @@ public:
 
 struct MatrixAddressing {
     MatrixLayout layout; // Layout type (N/T/Pr/Pc)
-    uint8_t packSize; // # of elements in a packed row/column for packed layouts.
-    uint8_t crosspack; // Crosspack for packed layouts.
+    uint8_t packSize
+            = 0; // # of elements in a packed row/column for packed layouts.
+    uint8_t crosspack = 1; // Crosspack for packed layouts.
     uint8_t alignment; // Alignment for all addresses, offsets, and leading dimensions.
     uint8_t tileR = 0, tileC = 0; // Tiling (0 if none) for packed layouts.
     uint8_t panelLength
@@ -456,6 +462,8 @@ struct MatrixAddressing {
         return sanitizeAlign(
                 (isPacked(layout) ? (packSize * crosspack) : 1) * T);
     }
+
+    void transpose();
 
 private:
     static int sanitizeAlign(int align) {
@@ -985,6 +993,8 @@ struct GEMMProblem : public CommonProblem {
     bool quantized2DA() const { return (aoPtrDims == 2) || aScale2D; }
     bool quantized2DB() const { return (boPtrDims == 2) || bScale2D; }
 
+    void transpose();
+
     /* Kernel cache helpers. */
     void serialize(serialized_data_t &s) const {
         s.append(Ta, Tb, Tc, Ts);
@@ -1086,9 +1096,9 @@ struct GEMMStrategyPOD : public CommonStrategy {
     uint8_t pad4[3] = {};
     int optAlignAB
             = 0; // Optional alignment for A/B. If > 0, create two versions of k loop, one for A/B aligned to this value, one not.
-    enum {
-        AlignBlock2D = 65536 //   Special optAlignAB value for block 2D loads.
-    };
+    bool optAlignAB2D
+            = false; //   If true, create two version of k loop, one for A/B aligned to block 2D requirements, one not.
+    uint8_t pad4b[3] = {};
     AccessType unalignedAccA,
             unalignedAccB; // Access types to use for A/B on unaligned path.
     uint8_t pad5[2] = {};
@@ -1316,6 +1326,14 @@ struct GEMMStrategy : public GEMMStrategyPOD {
 
     bool checkAdd32Rem() const { return checkAdd32 && emulate.emulate64; }
 
+    bool allowDoubleMasking(LoopType loop) const {
+        return doubleMasking || unroll[loop] == 1;
+    }
+
+    bool registerOutput() const {
+        return C.base.getModel() == ngen::ModelInvalid;
+    }
+
     int aqGroupKGranularity() const {
         return groupKReduce(slmA ? unrollKSLM : ka_load);
     }
@@ -1339,6 +1357,7 @@ struct GEMMStrategy : public GEMMStrategyPOD {
 struct LDMultiples {
     ngen::GRFRange range;
     bool a64 = false;
+    int count = 0;
 };
 
 using LDIncrements = std::vector<std::pair<int, SubregisterPair>>;
@@ -1390,6 +1409,7 @@ struct GEMMState : public CommonState {
                 incr_beta; // ud, used for non-strided variable batch.
         ngen::Subregister alpha_array,
                 beta_array; // q, used for non-strided variable batch.
+        ngen::Subregister slmBase; // ud
         std::vector<ngen::Subregister> binarySrcs; // q
         std::vector<ngen::Subregister> binaryOffsets; // q/d
         std::vector<ngen::Subregister> binaryLDs; // d
@@ -1570,6 +1590,8 @@ struct GEMMState : public CommonState {
     } sysgemm;
 
     GEMMState(ngen::HW hw) : CommonState(hw) {}
+
+    int internalSIMD() const { return simd32KMasks ? 32 : 16; }
 };
 
 // GEMM superkernel problem.
@@ -1723,6 +1745,13 @@ public:
             const ngen::InterfaceHandler &interface_);
     void copy(CopyProblem problem, CopyStrategy strategy,
             const ngen::InterfaceHandler &interface_);
+    void gemmMicrokernel(GEMMProblem problem, GEMMStrategy strategy,
+            const ngen::InterfaceHandler &interface_);
+    micro::Package gemmMicrokernelPackage(const GEMMProblem &problem,
+            const GEMMStrategy &strategy,
+            const ngen::InterfaceHandler &interface_,
+            micro::GEMMProtocol protocol, uint32_t gmdid,
+            bool transposeC = false);
 
     static CommonDriverInfo driverInfo(
             GEMMProblem problem, const GEMMStrategy &strategy);
@@ -1736,6 +1765,8 @@ protected:
             &interface = ngen::OpenCLCodeGenerator<hw>::interface_;
 
     std::exception_ptr lastException;
+    GRFMultirange outputCRange;
+    std::vector<RegisterBlock> outputCLayout;
 
     std::ostream &getOutStream() const { return std::cerr; }
 
@@ -2080,6 +2111,7 @@ protected:
     void saveMNLocalIDs(const GEMMStrategy &strategy, GEMMState &state);
     void saveKLocalIDSize(const GEMMStrategy &strategy, GEMMState &state);
     void releaseSavedMNLocalIDs(GEMMState &state);
+    void makeSLMBaseRelative(ngen::Subregister addr, const GEMMState &state);
 
     void doReadSuppressionWA(
             const CommonStrategy &strategy, CommonState &state);
@@ -2097,7 +2129,7 @@ protected:
     bool getSubblocks(Type T, std::vector<RegisterBlock> &sublayout,
             const std::vector<RegisterBlock> &layout, bool column, int x1,
             int x2, bool overrunOK, const MatrixAddressing &atype,
-            const MatrixAddressingStrategy &astrategy);
+            const MatrixAddressingStrategy &astrategy, bool decoalesce = false);
     bool getSubblocks(Type T, std::vector<RegisterBlock> &sublayout,
             std::vector<ngen::GRFRange> *subaddrs, std::vector<int> *indices,
             const std::vector<RegisterBlock> &layout,
@@ -2818,14 +2850,16 @@ protected:
             bool prefetch = false);
     void gemmScaleInputs(const GEMMProblem &problem,
             const GEMMStrategy &strategy, GEMMState &state);
+    void gemmCalcWGRemainders(const GEMMProblem &problem,
+            const GEMMStrategy &strategy, GEMMState &state);
     void gemmReverseLoops(const GEMMProblem &problem,
             const GEMMStrategy &strategy, GEMMState &state);
     void gemmDowngradeAccess(const GEMMProblem &problem, GEMMStrategy &strategy,
             GEMMState &state);
     void gemmSubkernel(
             GEMMProblem &problem, GEMMStrategy &strategy, GEMMState state);
-    static size_t gemmSLMSize(
-            const GEMMProblem &problem, const GEMMStrategy &strategy);
+    static size_t gemmSLMSize(const GEMMProblem &problem,
+            const GEMMStrategy &strategy, bool computeMax = false);
     static size_t gemmPerKSLMSize(
             const GEMMProblem &problem, const GEMMStrategy &strategy);
     void gemmInitInterface(GEMMProblem &problem, GEMMStrategy &strategy,
@@ -2927,6 +2961,8 @@ protected:
             const SubregisterPair &alpha_imag, bool conjugate,
             const CommonStrategy &strategy, CommonState &state,
             bool preserveSrc = false);
+    void overlappedCopy(const GRFMultirange &src, const GRFMultirange &dst,
+            CommonState &state);
 
     bool copyBody(
             CopyProblem &problem, CopyStrategy &strategy, CopyState &state);
@@ -2963,6 +2999,7 @@ inline char precisionChar(Type T) {
         case Type::bf8: return 'Q';
         case Type::hf8: return 'q';
         case Type::f32: return 'S';
+        case Type::f64: return 'D';
         case Type::u4: return 'f';
         case Type::s4: return 'F';
         case Type::u8: return 'o';
@@ -2985,6 +3022,7 @@ static inline Type charPrecision(char c) {
         case 'Q': return Type::bf8;
         case 'q': return Type::hf8;
         case 'S': return Type::f32;
+        case 'D': return Type::f64;
         case 'f': return Type::u4;
         case 'F': return Type::s4;
         case 'o': return Type::u8;

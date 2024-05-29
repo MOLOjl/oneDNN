@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2016-2023 Intel Corporation
+* Copyright 2016-2024 Intel Corporation
 * Copyright 2020-2023 Arm Ltd. and affiliates
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -88,7 +88,7 @@ public:
 #define CASE(kind) \
     case primitive_kind::kind: \
         return get_##kind##_impl_list((const kind##_desc_t *)desc);
-        switch (desc->kind) {
+        switch ((int) desc->kind) {
             CASE(batch_normalization);
             CASE(binary);
             CASE(convolution);
@@ -106,6 +106,7 @@ public:
             CASE(rnn);
             CASE(shuffle);
             CASE(softmax);
+            case primitive_kind::sdpa: return empty_list;
             default: assert(!"unknown primitive kind"); return empty_list;
         }
 #undef CASE
@@ -115,7 +116,9 @@ public:
 
 class cpu_engine_t : public engine_t {
 public:
-    cpu_engine_t() : engine_t(engine_kind::cpu, get_cpu_native_runtime(), 0) {}
+    cpu_engine_t()
+        : engine_t(new impl::engine_impl_t(
+                engine_kind::cpu, get_cpu_native_runtime(), 0)) {}
 
     /* implementation part */
 

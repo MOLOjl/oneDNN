@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2020-2023 Intel Corporation
+* Copyright 2020-2024 Intel Corporation
 * Copyright 2020 Codeplay Software Limited
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,19 +20,7 @@
 #include "hip/hip_runtime.h"
 
 #include "miopen/miopen.h"
-#include "sycl/sycl_utils.hpp"
-
-#include "gpu/amd/miopen_batch_normalization.hpp"
-#include "gpu/amd/miopen_binary.hpp"
-#include "gpu/amd/miopen_convolution.hpp"
-#include "gpu/amd/miopen_deconvolution.hpp"
-#include "gpu/amd/miopen_eltwise.hpp"
-#include "gpu/amd/miopen_gemm_inner_product.hpp"
-#include "gpu/amd/miopen_lrn.hpp"
-#include "gpu/amd/miopen_matmul.hpp"
-#include "gpu/amd/miopen_pooling.hpp"
-#include "gpu/amd/miopen_reduction.hpp"
-#include "gpu/amd/miopen_softmax.hpp"
+#include "xpu/sycl/utils.hpp"
 #include "gpu/amd/hip_transpose.hpp"
 #include "gpu/amd/sycl_hip_compat.hpp"
 #include "gpu/amd/sycl_hip_engine.hpp"
@@ -137,7 +125,7 @@ rocblas_handle *sycl_hip_engine_t::get_rocblas_handle() {
 }
 
 device_id_t sycl_hip_engine_t::device_id() const {
-    return device_id_t(static_cast<int>(impl::sycl::backend_t::amd),
+    return device_id_t(static_cast<int>(xpu::sycl::backend_t::amd),
             static_cast<uint64_t>(compat::get_native<hipDevice_t>(device())),
             static_cast<uint64_t>(0));
 }
@@ -168,8 +156,6 @@ using namespace dnnl::impl::data_type;
 
 // clang-format off
 constexpr dnnl::impl::impl_list_item_t sycl_hip_impl_list[] = {
-        // Transpose
-        INSTANCE(hip_transpose_t)
         // Binary
         INSTANCE(miopen_binary_t)
         // Elementwise

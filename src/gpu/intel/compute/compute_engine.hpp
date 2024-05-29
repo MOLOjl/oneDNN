@@ -23,6 +23,7 @@
 #include <initializer_list>
 
 #include "common/c_types_map.hpp"
+#include "common/engine_impl.hpp"
 #include "common/primitive.hpp"
 #include "common/primitive_desc_iterator.hpp"
 #include "common/resource.hpp"
@@ -33,6 +34,7 @@
 #include "gpu/intel/compute/kernel.hpp"
 #include "gpu/intel/compute/kernel_ctx.hpp"
 #include "gpu/intel/jit/jit_generator_base.hpp"
+#include "xpu/utils.hpp"
 
 namespace dnnl {
 namespace impl {
@@ -42,9 +44,7 @@ namespace compute {
 
 class compute_engine_t : public engine_t {
 public:
-    compute_engine_t(
-            engine_kind_t kind, runtime_kind_t runtime_kind, size_t index)
-        : engine_t(kind, runtime_kind, index) {}
+    compute_engine_t(impl::engine_impl_t *impl) : engine_t(impl) {}
 
     virtual status_t init();
     status_t init(const std::vector<uint8_t> &cache_blob);
@@ -80,7 +80,7 @@ public:
     };
 
     virtual status_t create_kernel_from_binary(compute::kernel_t &kernel,
-            const compute::binary_t &binary, const char *kernel_name) const = 0;
+            const xpu::binary_t &binary, const char *kernel_name) const = 0;
 
     virtual status_t create_kernels_from_cache_blob(
             const cache_blob_t &cache_blob,
@@ -163,12 +163,7 @@ public:
                 : device_info_->gpu_arch() >= compute::gpu_arch_t::xe_hpc;
     }
     bool mayiuse_large_grf_mode() const {
-        // XXX: XeHPG 128EU A0 causes hangs with large GRF mode.
-        if (is_xe_hpg() && device_info()->eu_count() == 128
-                && device_info()->stepping_id() == 0
-                && device_info()->mayiuse_systolic())
-            return false;
-        return device_info_->gpu_arch() >= compute::gpu_arch_t::xe_hp;
+        return device_info()->mayiuse_systolic();
     }
 
     dispatch_t create_dispatch(const memory_desc_t *md = nullptr) const {
