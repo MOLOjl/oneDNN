@@ -798,6 +798,26 @@ inline bool operator==(const sum_desc_t &lhs, const sum_desc_t &rhs) {
     return ret;
 }
 
+inline bool operator==(const transpose_desc_t &lhs, const transpose_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(dim1)
+            && COMPARE_DESC_MEMBERS(dim2);
+    return ret;
+}
+
+inline bool operator==(const mask_desc_t &lhs, const mask_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(mask_desc)
+            && COMPARE_DESC_MEMBERS(value_f)
+            && COMPARE_DESC_MEMBERS(value_i);
+    return ret;
+}
+
+
 inline bool operator==(const zero_pad_desc_t &lhs, const zero_pad_desc_t &rhs) {
     bool ret = COMPARE_DESC_MEMBERS(primitive_kind);
     return ret;
@@ -1130,6 +1150,8 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         CASE_OP_DESC(sdpa);
         CASE_OP_DESC(shuffle);
         CASE_OP_DESC(softmax);
+        CASE_OP_DESC(transpose);
+        CASE_OP_DESC(mask);
 
         // Internal descs
         CASE_OP_DESC(zero_pad);

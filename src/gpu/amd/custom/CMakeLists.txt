@@ -1,5 +1,5 @@
 #===============================================================================
-# Copyright 2022-2024 Intel Corporation
+# Copyright 2022-2023 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,20 +14,24 @@
 # limitations under the License.
 #===============================================================================
 
-file(GLOB SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
-    )
+file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 
-set(OBJ_LIB ${LIB_PACKAGE_NAME}_gpu_amd)
+set(OBJ_LIB ${LIB_PACKAGE_NAME}_sycl_amd_custom)
+
 add_library(${OBJ_LIB} OBJECT ${SOURCES})
-set_property(GLOBAL APPEND PROPERTY DNNL_LIB_DEPS
-    $<TARGET_OBJECTS:${OBJ_LIB}>)
+
+enable_language(HIP)
+
+set(CMAKE_C_COMPILER hipcc)
+set(CMAKE_CXX_COMPILER hipcc)
+set(CMAKE_C_FLAGS "")
+set(CMAKE_CXX_FLAGS "")
+
+target_include_directories(${OBJ_LIB} PRIVATE ${HIP_INCLUDE_DIR})
+# message(FATAL_ERROR "${HIP_INCLUDE_DIR}")
 
 add_library(${OBJ_LIB}_interface INTERFACE)
-target_link_libraries(${OBJ_LIB}_interface INTERFACE rocBLAS::rocBLAS MIOpen::MIOpen)
+target_link_libraries(${OBJ_LIB}_interface INTERFACE ${HIP_LIBRARY})
+
 set_property(GLOBAL APPEND PROPERTY DNNL_LIB_DEPS $<TARGET_OBJECTS:${OBJ_LIB}>)
-
 set(${LIB_PACKAGE_NAME}_INTERFACE ${${LIB_PACKAGE_NAME}_INTERFACE} ${OBJ_LIB}_interface PARENT_SCOPE)
-
-add_subdirectory(custom)

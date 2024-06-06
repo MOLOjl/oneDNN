@@ -1361,6 +1361,60 @@ dnnl_status_t DNNL_API dnnl_memory_destroy(dnnl_memory_t memory);
 /// @addtogroup dnnl_api_primitives
 /// @{
 
+/// @addtogroup dnnl_api_mask
+/// @{
+
+/// Creates a primitive descriptor for a mask primitive.
+///
+/// @param mask_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @param mask_desc Mask memory descriptor.
+/// @param value value to fill in Source with.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_mask_primitive_desc_create(
+        dnnl_primitive_desc_t *mask_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        const_dnnl_memory_desc_t mask_desc,
+        double value);
+
+/// Creates a primitive descriptor for a mask primitive.
+///
+/// @param mask_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @param mask_desc Mask memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_mask_primitive_desc_create(
+        dnnl_primitive_desc_t *mask_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        const_dnnl_memory_desc_t mask_desc,
+        double value);
+
+/// @} dnnl_api_mask
+
+/// @addtogroup dnnl_api_transpose
+/// @{
+
+/// Creates a primitive descriptor for a transpose primitive.
+///
+/// @param transpose_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_transpose_primitive_desc_create(
+        dnnl_primitive_desc_t *transpose_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        dnnl_dim_t dim1, dnnl_dim_t dim2);
+
+/// @} dnnl_api_transpose
+
 /// @addtogroup dnnl_api_reorder
 /// @{
 

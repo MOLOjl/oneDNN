@@ -108,6 +108,10 @@ struct primitive : public handle<dnnl_primitive_t> {
     enum class kind {
         /// Undefined primitive
         undef = dnnl_undefined_primitive,
+        /// A mask primitive.
+        mask = dnnl_mask,
+        /// A transpose primitive.
+        transpose = dnnl_transpose,
         /// A reorder primitive.
         reorder = dnnl_reorder,
         /// A shuffle primitive.
@@ -4893,6 +4897,209 @@ protected:
 };
 
 /// @} dnnl_api_primitives_common
+
+/// @addtogroup dnnl_api_mask mask
+///
+/// A primitive to copy data between two memory objects. This primitive is
+/// typically used to exchange the two specified dimensions of the src memory.
+///
+/// @sa @ref dev_guide_transpose in developer guide
+///
+/// @{
+
+/// Transpose primitive.
+struct mask : public primitive {
+    /// Primitive descriptor for a mask primitive.
+    struct primitive_desc : public primitive_desc_base {
+        using primitive_desc_base::primitive_desc_base;
+
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for mask primitive.
+        ///
+        /// @param src Source memory object. It is used to obtain the source
+        ///     memory descriptor and engine.
+        /// @param mask mask(weight) memory object. It is used to obtain the mask
+        ///     memory descriptor and engine.
+        /// @param dst Destination memory object. It is used to obtain the
+        ///     destination memory descriptor and engine.
+        /// @param value value that used to fill masked place of Source memory.
+        /// @param allow_empty A flag signifying whether construction is allowed
+        ///     to fail without throwing an exception. In this case an empty
+        ///     object will be produced. This flag is optional and defaults to
+        ///     false.
+        primitive_desc(const engine &aengine, const memory &src, const memory &mask, 
+                const memory &dst, double value, bool allow_empty = false) {
+            dnnl_primitive_desc_t result;
+            auto src_md = src.get_desc();
+            auto mask_md = mask.get_desc();
+            auto dst_md = dst.get_desc();
+            dnnl_status_t status = dnnl_mask_primitive_desc_create(&result,
+                    aengine.get(), src_md.get(), dst_md.get(), mask_md.get(), value);
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not create a primitive descriptor for a mask "
+                        "primitive");
+            reset(status == dnnl_success ? result : dnnl_primitive_desc_t());
+        }
+
+        /// Constructs a primitive descriptor for mask primitive, for integer memory. 
+        ///
+        /// @param src Source memory object. It is used to obtain the source
+        ///     memory descriptor and engine.
+        /// @param mask mask(weight) memory object. It is used to obtain the mask
+        ///     memory descriptor and engine.
+        /// @param dst Destination memory object. It is used to obtain the
+        ///     destination memory descriptor and engine.
+        /// @param value value that used to fill masked place of Source memory.
+        /// @param allow_empty A flag signifying whether construction is allowed
+        ///     to fail without throwing an exception. In this case an empty
+        ///     object will be produced. This flag is optional and defaults to
+        ///     false.
+        primitive_desc(const engine &aengine, const memory &src, const memory &mask, 
+                const memory &dst, int64_t value, bool allow_empty = false) {
+            dnnl_primitive_desc_t result;
+            auto src_md = src.get_desc();
+            auto mask_md = mask.get_desc();
+            auto dst_md = dst.get_desc();
+            dnnl_status_t status = dnnl_mask_primitive_desc_create(&result,
+                    aengine.get(), src_md.get(), dst_md.get(), mask_md.get(), value);
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not create a primitive descriptor for a mask "
+                        "primitive");
+            reset(status == dnnl_success ? result : dnnl_primitive_desc_t());
+        }
+
+        /// Constructs a primitive descriptor for reorder primitive from a C
+        /// API primitive descriptor which must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for reorder primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : primitive_desc_base(pd, dnnl::primitive::kind::mask) {}
+
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc src_desc() const { return base::src_desc(0); }
+
+        /// @copydoc dnnl::primitive_desc_base::dst_desc()const
+        memory::desc dst_desc() const { return base::dst_desc(0); }
+    };
+
+    /// Default constructor. Produces an empty object.
+    mask() = default;
+
+    /// Constructs a mask primitive.
+    /// @param pd Primitive descriptor for mask primitive.
+    mask(const primitive_desc &pd) : primitive(pd.get()) {}
+
+    /// Constructs a mask primitive from a cache blob.
+    /// @param pd Primitive descriptor for mask primitive.
+    /// @param cache_blob Cache blob.
+    mask(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd.get(), cache_blob) {}
+
+    using primitive::execute;
+
+    /// Executes the mask primitive.
+    ///
+    /// @param astream Stream object. The stream must belong to the same engine
+    ///     as the primitive.
+    /// @param src Source memory object.
+    /// @param dst Destination memory object.
+    /// @param mask Mask memory object.
+    void execute(const stream &astream, memory &src, memory &dst, memory &mask) const {
+        primitive::execute(astream, {{DNNL_ARG_FROM, src}, {DNNL_ARG_TO, dst}, {DNNL_ARG_WEIGHTS, mask}});
+    }
+};
+
+/// @} dnnl_api_mask
+
+/// @addtogroup dnnl_api_transpose Transpose
+///
+/// A primitive to copy data between two memory objects. This primitive is
+/// typically used to exchange the two specified dimensions of the src memory.
+///
+/// @sa @ref dev_guide_transpose in developer guide
+///
+/// @{
+
+/// Transpose primitive.
+struct transpose : public primitive {
+    /// Primitive descriptor for a transpose primitive.
+    struct primitive_desc : public primitive_desc_base {
+        using primitive_desc_base::primitive_desc_base;
+
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for transpose primitive.
+        ///
+        /// @param src Source memory object. It is used to obtain the source
+        ///     memory descriptor and engine.
+        /// @param dst Destination memory object. It is used to obtain the
+        ///     destination memory descriptor and engine.
+        /// @param dim1 dim1 that transpose from.
+        /// @param dim2 dim1 that transpose to.
+        /// @param allow_empty A flag signifying whether construction is allowed
+        ///     to fail without throwing an exception. In this case an empty
+        ///     object will be produced. This flag is optional and defaults to
+        ///     false.
+        primitive_desc(const engine &aengine, const memory &src, const memory &dst,
+                memory::dim dim1, memory::dim dim2, bool allow_empty = false) {
+            dnnl_primitive_desc_t result;
+            auto src_md = src.get_desc();
+            auto dst_md = dst.get_desc();
+            dnnl_status_t status = dnnl_transpose_primitive_desc_create(&result,
+                    aengine.get(), src_md.get(), dst_md.get(), dim1, dim2);
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not create a primitive descriptor for a transpose "
+                        "primitive");
+            reset(status == dnnl_success ? result : dnnl_primitive_desc_t());
+        }
+
+        /// Constructs a primitive descriptor for transpose primitive from a C
+        /// API primitive descriptor which must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for transpose primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : primitive_desc_base(pd, dnnl::primitive::kind::transpose) {}
+
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc src_desc() const { return base::src_desc(0); }
+
+        /// @copydoc dnnl::primitive_desc_base::dst_desc()const
+        memory::desc dst_desc() const { return base::dst_desc(0); }
+    };
+
+    /// Default constructor. Produces an empty object.
+    transpose() = default;
+
+    /// Constructs a transpose primitive.
+    /// @param pd Primitive descriptor for transpose primitive.
+    transpose(const primitive_desc &pd) : primitive(pd.get()) {}
+
+    /// Constructs a transpose primitive from a cache blob.
+    /// @param pd Primitive descriptor for transpose primitive.
+    /// @param cache_blob Cache blob.
+    transpose(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd.get(), cache_blob) {}
+
+    using primitive::execute;
+
+    /// Executes the transpose primitive.
+    ///
+    /// @param astream Stream object. The stream must belong to the same engine
+    ///     as the primitive.
+    /// @param src Source memory object.
+    /// @param dst Destination memory object.
+    void execute(const stream &astream, memory &src, memory &dst) const {
+        primitive::execute(astream, {{DNNL_ARG_FROM, src}, {DNNL_ARG_TO, dst}});
+    }
+};
+
+/// @} dnnl_api_transpose
 
 /// @addtogroup dnnl_api_reorder Reorder
 ///

@@ -2017,6 +2017,10 @@ typedef enum {
     dnnl_layer_normalization,
     /// A group normalization primitive.
     dnnl_group_normalization,
+    /// A transpose primitive.
+    dnnl_transpose,
+    /// A mask primitive.
+    dnnl_mask,
 
     /// Parameter to allow internal only primitives without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.
