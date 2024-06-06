@@ -20,5 +20,7 @@ namespace hip_custom {
 
 void transpose(int dtype, void *input, void *output, const size_t *dims, int num_dims, int dim1, int dim2);
 
+void mask(void *input, void *output, void *mask, const size_t *dims, const size_t *dims_mask, int num_dims, float masked_value, int fp_length);
+
 }
 

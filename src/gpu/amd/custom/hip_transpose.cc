@@ -34,6 +34,8 @@ __global__ void transpose_kernel_f32(float *input, float *output, size_t* in_str
     istrides[threadIdx.x] = in_strides[threadIdx.x];
     ostrides[threadIdx.x] = out_strides[threadIdx.x];
   }
+  
+  __syncthreads();
 
   for(int i = 0; i < IterCount; i++)
   {

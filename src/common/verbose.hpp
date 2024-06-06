@@ -190,6 +190,7 @@ struct component_t {
         graph = 1 << 22,
         gemm_api = 1 << 23,
         transpose = 1 << 24,
+        mask = 1 << 25,
         all = (uint32_t)-1,
     };
 };

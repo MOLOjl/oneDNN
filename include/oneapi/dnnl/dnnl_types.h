@@ -2019,7 +2019,9 @@ typedef enum {
     dnnl_group_normalization,
     /// A transpose primitive.
     dnnl_transpose,
-    
+    /// A mask primitive.
+    dnnl_mask,
+
     /// Parameter to allow internal only primitives without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.
     dnnl_primitive_kind_max = 0x7fff,

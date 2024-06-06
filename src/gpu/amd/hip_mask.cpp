@@ -15,7 +15,7 @@
 * limitations under the License.
 *******************************************************************************/
 
-#include "gpu/amd/hip_transpose.hpp"
+#include "gpu/amd/hip_mask.hpp"
 #include "gpu/amd/sycl_hip_scoped_context.hpp"
 #include "gpu/amd/sycl_hip_stream.hpp"
 #include "xpu/sycl/buffer_memory_storage.hpp"
@@ -26,7 +26,7 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-status_t hip_transpose_t::execute(const exec_ctx_t &ctx) const {
+status_t hip_mask_t::execute(const exec_ctx_t &ctx) const {
     if (memory_desc_wrapper(pd()->src_md()).has_zero_dim())
         return status::success;
     amd::sycl_hip_stream_t *hip_stream
@@ -35,6 +35,7 @@ status_t hip_transpose_t::execute(const exec_ctx_t &ctx) const {
     return hip_stream->interop_task([&](::sycl::handler &cgh) {
         auto arg_src = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC);
         auto arg_dst = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DST);
+        auto arg_mask = CTX_IN_SYCL_MEMORY(DNNL_ARG_WEIGHTS);
 
         compat::host_task(cgh, [=](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<sycl_hip_engine_t *>(
@@ -43,8 +44,9 @@ status_t hip_transpose_t::execute(const exec_ctx_t &ctx) const {
 
             void *x = arg_src.get_native_pointer(ih);
             void *y = arg_dst.get_native_pointer(ih);
+            void *mask = arg_mask.get_native_pointer(ih);
 
-            pd()->transpose_impl_->execute(x, y);
+            pd()->mask_impl_->execute(x, y, mask);
         });
     });
 }

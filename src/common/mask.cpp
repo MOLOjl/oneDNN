@@ -32,39 +32,51 @@ namespace dnnl {
 namespace impl {
 
 #define VCHECK_TRANSPOSE(cond, msg, ...) \
-    VCONDCHECK(primitive, create, check, dnnl_transpose, (cond), \
+    VCONDCHECK(primitive, create, check, mask, (cond), \
             status::invalid_arguments, msg, ##__VA_ARGS__);
 
-status_t transpose_desc_init(transpose_desc_t *transpose_desc,
+status_t mask_desc_init(mask_desc_t *mask_desc,
         const memory_desc_t *src_md, const memory_desc_t *dst_md, 
-        dnnl_dim_t dim1, dnnl_dim_t dim2) {
+        const memory_desc_t *mask_md, double value_f, double value_i) {
     VCHECK_TRANSPOSE(!any_null(src_md, dst_md), VERBOSE_NULL_ARG);
     
-    auto op_d = transpose_desc_t();
-    op_d.primitive_kind = primitive_kind::transpose;
+    auto op_d = mask_desc_t();
+    op_d.primitive_kind = primitive_kind::mask;
     op_d.src_desc = *src_md;
     op_d.dst_desc = *dst_md;
-    op_d.dim1 = dim1;
-    op_d.dim2 = dim2;
+    op_d.mask_desc = *mask_md;
+    op_d.value_f = value_f;
+    op_d.value_i = value_i;
 
-    // check dim1 and dim2
-    // TODO:
-    *transpose_desc = op_d;
-
+    *mask_desc = op_d;
     return status::success;
 }
 
 } // namespace impl
 } // namespace dnnl
 
-status_t dnnl_transpose_primitive_desc_create(
+status_t dnnl_mask_primitive_desc_create(
         primitive_desc_iface_t **primitive_desc_iface, dnnl_engine_t engine, 
         const memory_desc_t *src_md, const memory_desc_t *dst_md, 
-        dnnl_dim_t dim1, dnnl_dim_t dim2) {
-    auto transpose_desc = transpose_desc_t();
-    CHECK(transpose_desc_init(
-            &transpose_desc, src_md, dst_md, dim1, dim2));
+        const memory_desc_t *mask_md, 
+        double value) {
+    auto mask_desc = mask_desc_t();
+    CHECK(mask_desc_init(
+            &mask_desc, src_md, dst_md, mask_md, value, 0));
 	
     return primitive_desc_create(primitive_desc_iface, engine,
-            (const op_desc_t *)&transpose_desc, nullptr, nullptr);
+            (const op_desc_t *)&mask_desc, nullptr, nullptr);
+}
+
+status_t dnnl_mask_primitive_desc_create(
+        primitive_desc_iface_t **primitive_desc_iface, dnnl_engine_t engine, 
+        const memory_desc_t *src_md, const memory_desc_t *dst_md, 
+        const memory_desc_t *mask_md, 
+        int64_t value) {
+    auto mask_desc = mask_desc_t();
+    CHECK(mask_desc_init(
+            &mask_desc, src_md, dst_md, mask_md, 0, value));
+	
+    return primitive_desc_create(primitive_desc_iface, engine,
+            (const op_desc_t *)&mask_desc, nullptr, nullptr);
 }

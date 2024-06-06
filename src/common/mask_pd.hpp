@@ -14,8 +14,8 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef COMMON_TRANSPOSE_PD_HPP
-#define COMMON_TRANSPOSE_PD_HPP
+#ifndef COMMON_MASK_PD_HPP
+#define COMMON_MASK_PD_HPP
 
 #include <assert.h>
 
@@ -25,25 +25,26 @@
 #include "primitive_desc.hpp"
 #include "utils.hpp"
 
-#define VDISPATCH_TRANSPOSE(cond, msg, ...) \
-    VCONDCHECK(primitive, create, dispatch, transpose, (cond), \
+#define VDISPATCH_MASK(cond, msg, ...) \
+    VCONDCHECK(primitive, create, dispatch, mask, (cond), \
             status::unimplemented, "%s," msg, this->info(engine), \
             ##__VA_ARGS__)
 
 namespace dnnl {
 namespace impl {
 
-status_t transpose_desc_init(transpose_desc_t *transpose_desc,
+status_t mask_desc_init(mask_desc_t *mask_desc,
         const memory_desc_t *src_md, const memory_desc_t *dst_md, 
-        dnnl_dim_t dim1, dnnl_dim_t dim2);
+        const memory_desc_t *mask_md, 
+        double value_f, double value_i);
 
-struct transpose_pd_t : public primitive_desc_t {
-    static constexpr auto base_pkind = primitive_kind::transpose;
+struct mask_pd_t : public primitive_desc_t {
+    static constexpr auto base_pkind = primitive_kind::mask;
 
-    typedef transpose_pd_t base_class;
-    typedef transpose_pd_t hint_class;
+    typedef mask_pd_t base_class;
+    typedef mask_pd_t hint_class;
 
-    const transpose_desc_t *desc() const { return &desc_; }
+    const mask_desc_t *desc() const { return &desc_; }
     const op_desc_t *op_desc() const override {
         return reinterpret_cast<const op_desc_t *>(this->desc());
     }
@@ -77,27 +78,35 @@ struct transpose_pd_t : public primitive_desc_t {
         return &glob_zero_md;
     }
 
+    const memory_desc_t *mask_md(
+            int index = 0, bool user_input = false) const {
+        if (index == 0) return user_input ? &desc()->mask_desc : &mask_md_;
+        return &glob_zero_md;
+    }
+
     int n_inputs() const override { return 1; }
     int n_outputs() const override { return 1; }
 
-	dim_t dim1() const { return dim1_; }
-	dim_t dim2() const { return dim2_; }
+	double value_f() const { return value_f_; }
+	int64_t value_i() const { return value_i_; }
 
 protected:
-    transpose_desc_t desc_;
+    mask_desc_t desc_;
     memory_desc_t src_md_;
     memory_desc_t dst_md_;
-    dnnl_dim_t dim1_;
-    dnnl_dim_t dim2_;
+    memory_desc_t mask_md_;
+	double value_f_;
+    int64_t value_i_;
 
-	transpose_pd_t(const transpose_desc_t *adesc, const primitive_attr_t *attr,
-		const transpose_pd_t *hint_fwd_pd)
+	mask_pd_t(const mask_desc_t *adesc, const primitive_attr_t *attr,
+		const mask_pd_t *hint_fwd_pd)
 		: primitive_desc_t(attr, base_pkind)
         , desc_(*adesc)
         , src_md_(desc_.src_desc)
         , dst_md_(desc_.dst_desc)
-        , dim1_(desc_.dim1)
-        , dim2_(desc_.dim2) {}
+        , mask_md_(desc_.mask_desc)
+        , value_f_(desc_.value_f)
+        , value_i_(desc_.value_i) {}
 };
 
 } // namespace impl
