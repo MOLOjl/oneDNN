@@ -166,6 +166,8 @@ inline void prepare_utils(int num_dims, const size_t *dims, const size_t *dims_m
   *numBlocks = *total_elements / blockSize;
   if(*total_elements % blockSize != 0)
     *numBlocks += 1;
+  
+  free(io_strides);
 }
 
 namespace hip_custom {

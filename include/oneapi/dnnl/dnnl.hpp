@@ -4929,8 +4929,8 @@ struct mask : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &src, const memory &mask, 
-                const memory &dst, double value, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory &src, const memory &dst,
+                const memory &mask, double value, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
             auto src_md = src.get_desc();
             auto mask_md = mask.get_desc();
@@ -4957,8 +4957,8 @@ struct mask : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &src, const memory &mask, 
-                const memory &dst, int64_t value, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory &src, const memory &dst, 
+                const memory &mask, int64_t value, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
             auto src_md = src.get_desc();
             auto mask_md = mask.get_desc();

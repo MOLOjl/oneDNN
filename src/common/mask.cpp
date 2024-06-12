@@ -38,7 +38,7 @@ namespace impl {
 status_t mask_desc_init(mask_desc_t *mask_desc,
         const memory_desc_t *src_md, const memory_desc_t *dst_md, 
         const memory_desc_t *mask_md, double value_f, double value_i) {
-    VCHECK_TRANSPOSE(!any_null(src_md, dst_md), VERBOSE_NULL_ARG);
+    VCHECK_TRANSPOSE(!any_null(src_md, dst_md, mask_md), VERBOSE_NULL_ARG);
     
     auto op_d = mask_desc_t();
     op_d.primitive_kind = primitive_kind::mask;

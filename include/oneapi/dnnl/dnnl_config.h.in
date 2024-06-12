@@ -175,6 +175,8 @@
 #cmakedefine01 BUILD_INFERENCE
 // Primitive controls
 #cmakedefine01 BUILD_PRIMITIVE_ALL
+#cmakedefine01 BUILD_TRANSPOSE
+#cmakedefine01 BUILD_MASK
 #cmakedefine01 BUILD_BATCH_NORMALIZATION
 #cmakedefine01 BUILD_BINARY
 #cmakedefine01 BUILD_CONCAT

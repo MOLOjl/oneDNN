@@ -45,7 +45,7 @@ struct hip_mask_t : public primitive_t {
             // TODO: do some check.
             // bool ok = true;
 
-            if (!check_for_zero_dims()) 
+            if (check_for_zero_dims()) 
                 return status::invalid_arguments;
             if (!check_data_types()) 
                 return status::invalid_arguments;
@@ -55,8 +55,10 @@ struct hip_mask_t : public primitive_t {
         }
 
         bool check_for_zero_dims() const {
-            return has_zero_dims(src_md()->dims, src_md()->ndims)
-                    || has_zero_dims(dst_md()->dims, dst_md()->ndims);
+            bool src_zero = has_zero_dims(src_md()->dims, src_md()->ndims);
+            bool dst_zero = has_zero_dims(dst_md()->dims, dst_md()->ndims);
+            bool mask_zero = has_zero_dims(mask_md()->dims, mask_md()->ndims);
+            return src_zero || dst_zero || mask_zero;
         }
 
         bool check_no_blocking() const {
@@ -70,6 +72,8 @@ struct hip_mask_t : public primitive_t {
 
         bool check_data_types() const {
             using namespace data_type;
+            auto s_md = src_md();
+            auto d_md = dst_md();
             data_type_t input_type = src_md()->data_type;
             data_type_t output_type = dst_md()->data_type;
             bool type_same = (input_type == output_type);
