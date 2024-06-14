@@ -151,6 +151,7 @@ namespace gpu {
 #define DECLARE_IMPL_LIST(kind) \
     const impl_list_item_t *get_##kind##_impl_list(const kind##_desc_t *desc);
 
+DECLARE_IMPL_LIST(gather);
 DECLARE_IMPL_LIST(mask);
 DECLARE_IMPL_LIST(transpose);
 DECLARE_IMPL_LIST(batch_normalization);

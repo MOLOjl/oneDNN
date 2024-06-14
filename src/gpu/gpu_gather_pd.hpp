@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2016-2023 Intel Corporation
+* Copyright 2019-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,17 +14,20 @@
 * limitations under the License.
 *******************************************************************************/
 
-#include <hip/hip_runtime.h>
+#ifndef GPU_GPU_GATHER_PD_HPP
+#define GPU_GPU_GATHER_PD_HPP
 
-namespace hip_custom {
+#include "common/gather_pd.hpp"
 
-void transpose(int dtype, void *input, void *output, const size_t *dims, int num_dims, int dim1, int dim2);
+namespace dnnl {
+namespace impl {
+namespace gpu {
 
-void mask(void *input, void *output, void *mask, const size_t *dims, const size_t *dims_mask, int num_dims, float masked_value, int fp_length);
+struct gpu_gather_pd_t : public gather_pd_t {
+    using gather_pd_t::gather_pd_t;
+};
+} // namespace gpu
+} // namespace impl
+} // namespace dnnl
 
-void gather(void *input, void *output, void *index, const size_t *dims, int num_dims, int gather_dim, int dtype);
-
-void print_device_array(void* dev_a, size_t length, int dtype);
-
-}
-
+#endif

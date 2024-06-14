@@ -21,7 +21,7 @@
 #define MAX_DIM 8
 #define blockSize 256
 
-// Kernel to mask the input, can be done in place. the mask tensor shall be broadcast to the input tensor.
+// Kernel to mask the input, can be done in place. the mask tensor shall be broadcastable to the input tensor.
 __global__ void mask_kernel_f32(float* input, float* output, char* mask, size_t* stride_io, size_t* dims_mask, int num_dims, size_t total_elements, float masked_value)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -84,7 +84,7 @@ __global__ void mask_kernel_f32(float* input, float* output, char* mask, size_t*
   }
 }
 
-// Kernel to mask the input, can be done in place. the mask tensor shall be broadcast to the input tensor.
+// Kernel to mask the input, can be done in place. the mask tensor shall be broadcastable to the input tensor.
 __global__ void mask_kernel_f16(half* input, half* output, char* mask, size_t* stride_io, size_t* dims_mask, int num_dims, size_t total_elements, half masked_value)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;

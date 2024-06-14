@@ -25,6 +25,13 @@
 
 namespace dnnl {
 namespace impl {
+struct gather_desc_t {
+    primitive_kind_t primitive_kind;
+    memory_desc_t src_desc;
+    memory_desc_t dst_desc;
+    memory_desc_t idx_desc;
+    int gather_dim = 0;
+};
 
 struct mask_desc_t {
     primitive_kind_t primitive_kind;
@@ -637,6 +644,7 @@ struct op_desc_t {
         sdpa_desc_t sdpa;
         transpose_desc_t transpose;
         mask_desc_t mask;
+        gather_desc_t gather;
     };
 
 #define DECL_CTOR_AND_CONVERTERS(c_type) \
@@ -663,8 +671,6 @@ struct op_desc_t {
     DECL_CTOR_AND_CONVERTERS(gemm_desc_t);
     DECL_CTOR_AND_CONVERTERS(concat_desc_t);
     DECL_CTOR_AND_CONVERTERS(reorder_desc_t);
-    DECL_CTOR_AND_CONVERTERS(transpose_desc_t);
-    DECL_CTOR_AND_CONVERTERS(mask_desc_t);
     DECL_CTOR_AND_CONVERTERS(sum_desc_t);
     DECL_CTOR_AND_CONVERTERS(binary_desc_t);
     DECL_CTOR_AND_CONVERTERS(matmul_desc_t);
@@ -672,7 +678,10 @@ struct op_desc_t {
     DECL_CTOR_AND_CONVERTERS(zero_pad_desc_t);
     DECL_CTOR_AND_CONVERTERS(reduction_desc_t);
     DECL_CTOR_AND_CONVERTERS(sdpa_desc_t);
-
+    DECL_CTOR_AND_CONVERTERS(transpose_desc_t);
+    DECL_CTOR_AND_CONVERTERS(mask_desc_t);
+    DECL_CTOR_AND_CONVERTERS(gather_desc_t);
+    
     // concat_desc_t and sum_desc_t have data members which have non-trivial
     // special member functions hence the default destructor is implicitly
     // deleted by the compiler which causes a warning on Windows so we should

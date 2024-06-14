@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2016-2023 Intel Corporation
+* Copyright 2021-2024 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,17 +14,31 @@
 * limitations under the License.
 *******************************************************************************/
 
-#include <hip/hip_runtime.h>
+#include "gpu/gpu_impl_list.hpp"
 
-namespace hip_custom {
+#if DNNL_GPU_VENDOR == DNNL_VENDOR_AMD
+#include "gpu/amd/hip_gather.hpp"
+#endif
 
-void transpose(int dtype, void *input, void *output, const size_t *dims, int num_dims, int dim1, int dim2);
+namespace dnnl {
+namespace impl {
+namespace gpu {
 
-void mask(void *input, void *output, void *mask, const size_t *dims, const size_t *dims_mask, int num_dims, float masked_value, int fp_length);
+namespace {
 
-void gather(void *input, void *output, void *index, const size_t *dims, int num_dims, int gather_dim, int dtype);
+// clang-format off
+constexpr impl_list_item_t impl_list[] = REG_BINARY_P({
+        GPU_INSTANCE_AMD(amd::hip_gather_t)
+        nullptr,
+});
+// clang-format on
+} // namespace
 
-void print_device_array(void* dev_a, size_t length, int dtype);
-
+const impl_list_item_t *get_gather_impl_list(const gather_desc_t *desc) {
+    UNUSED(desc);
+    return impl_list;
 }
 
+} // namespace gpu
+} // namespace impl
+} // namespace dnnl

@@ -18,10 +18,10 @@
 #ifndef GPU_AMD_HIP_MASK_HPP
 #define GPU_AMD_HIP_MASK_HPP
 
-#include "common/mask_pd.hpp"
+#include "common/gather_pd.hpp"
 #include "common/c_types_map.hpp"
 #include "common/primitive.hpp"
-#include "gpu/amd/hip_mask_impl.hpp"
+#include "gpu/amd/hip_gather_impl.hpp"
 #include "gpu/amd/sycl_hip_engine.hpp"
 #include "gpu/amd/sycl_hip_utils.hpp"
 #include <miopen/miopen.h>
@@ -31,13 +31,13 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-struct hip_mask_t : public primitive_t {
+struct hip_gather_t : public primitive_t {
     using primitive_t::primitive_t;
 
-    struct pd_t : public mask_pd_t {
-        using mask_pd_t::mask_pd_t;
+    struct pd_t : public gather_pd_t {
+        using gather_pd_t::gather_pd_t;
 
-        DECLARE_COMMON_PD_T("hip:miopen:any", hip_mask_t);
+        DECLARE_COMMON_PD_T("hip:miopen:any", hip_gather_t);
 
         status_t init(engine_t *) {
             using namespace data_type;
@@ -50,15 +50,15 @@ struct hip_mask_t : public primitive_t {
             if (!check_data_types()) 
                 return status::invalid_arguments;
             
-            mask_impl_.reset(new hip_mask_impl_t());
-            return mask_impl_->init(this);
+            gather_impl_.reset(new hip_gather_impl_t());
+            return gather_impl_->init(this);
         }
 
         bool check_for_zero_dims() const {
             bool src_zero = has_zero_dims(src_md()->dims, src_md()->ndims);
             bool dst_zero = has_zero_dims(dst_md()->dims, dst_md()->ndims);
-            bool mask_zero = has_zero_dims(mask_md()->dims, mask_md()->ndims);
-            return src_zero || dst_zero || mask_zero;
+            bool idx_zero = has_zero_dims(idx_md()->dims, idx_md()->ndims);
+            return src_zero || dst_zero || idx_zero;
         }
 
         bool check_no_blocking() const {
@@ -78,7 +78,7 @@ struct hip_mask_t : public primitive_t {
             return type_same;
         }
 
-        std::shared_ptr<hip_mask_impl_t> mask_impl_;
+        std::shared_ptr<hip_gather_impl_t> gather_impl_;
     };
 
     status_t execute(const exec_ctx_t &ctx) const override;

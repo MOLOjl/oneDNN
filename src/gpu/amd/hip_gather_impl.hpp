@@ -25,39 +25,42 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-struct hip_mask_impl_t {
-    status_t init(const mask_pd_t *pd) {
+struct hip_gather_impl_t {
+    status_t init(const gather_pd_t *pd) {
+        printf("---\n");
         this->src_dtype = pd->src_md()->data_type;
-        this->value_f = pd->value_f();
-        this->value_i = pd->value_i();
+        this->gather_dim = pd->gather_dim();
         this->num_dims = pd->src_md()->ndims;
 
         for(int i=0; i<this->num_dims; i++){
-            this->dims_io[i] = pd->src_md()->dims[i];
-            this->dims_mask[i] = pd->mask_md()->dims[i];
+            this->dims[i] = pd->src_md()->dims[i];
+            if(this->dims[i] != pd->idx_md()->dims[i])
+                return status::invalid_arguments;
         }
+
         this->src_dtype = pd->src_md()->data_type;
         return status::success;
     }
 
-    void execute(void *x, void *y, void* mask) const {
+    void execute(void *x, void *y, void* index) const {
         if(src_dtype == dnnl::impl::data_type_t::dnnl_f32){
-            printf("???\n");
-            // hip_custom::mask(x, y, mask, dims_io, dims_mask, num_dims, (float)value_f, 32);
+            // printf("x:%p", x);
+            // hip_custom::print_device_array(x, dims[0]*dims[3]*dims[1]*dims[2], 0);
+            // hip_custom::print_device_array(y, dims[0]*dims[3]*dims[1]*dims[2], 0);
+            // hip_custom::print_device_array(index, dims[0]*dims[3]*dims[1]*dims[2], 2);
+
+            // hip_custom::gather(x, y, index, dims, num_dims, gather_dim, 0);
         }
         else if(src_dtype == dnnl::impl::data_type_t::dnnl_f16){
-            // hip_custom::mask(x, y, mask, dims_io, dims_mask, num_dims, (float)value_f, 16);
+            hip_custom::gather(x, y, index, dims, num_dims, gather_dim, 1);
         }
       	return;
     }
 
     dnnl::impl::data_type_t src_dtype;
     int num_dims;
-    size_t dims_io[8];
-    size_t dims_mask[8];
-
-    double value_f;
-    int64_t value_i;
+    size_t dims[8];
+    int gather_dim = 0;
 };
 
 } // namespace amd

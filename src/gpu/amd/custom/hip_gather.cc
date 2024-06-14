@@ -141,7 +141,6 @@ inline void prepare_utils(int num_dims, const size_t *dims, size_t **d_strides, 
 
 namespace hip_custom {
 
-// float tensor mask
 void gather(void *input, void *output, void *index, const size_t *dims, int num_dims, int gather_dim, int dtype)
 {
   size_t *d_strides;

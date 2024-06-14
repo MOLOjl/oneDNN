@@ -191,6 +191,7 @@ struct component_t {
         gemm_api = 1 << 23,
         transpose = 1 << 24,
         mask = 1 << 25,
+        gather = 1 << 26,
         all = (uint32_t)-1,
     };
 };

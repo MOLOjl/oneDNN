@@ -177,6 +177,7 @@ PKIND_TRAITS_INST(reduction);
 PKIND_TRAITS_INST(sdpa);
 PKIND_TRAITS_INST(transpose);
 PKIND_TRAITS_INST(mask);
+PKIND_TRAITS_INST(gather);
 #undef PKIND_TRAITS_INST
 
 } // namespace impl
