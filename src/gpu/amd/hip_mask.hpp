@@ -19,20 +19,20 @@
 #define GPU_AMD_HIP_MASK_HPP
 
 #include "common/mask_pd.hpp"
-#include "common/c_types_map.hpp"
-#include "common/primitive.hpp"
 #include "gpu/amd/hip_mask_impl.hpp"
-#include "gpu/amd/sycl_hip_engine.hpp"
+
 #include "gpu/amd/sycl_hip_utils.hpp"
-#include <miopen/miopen.h>
+#include "common/c_types_map.hpp"
+#include "gpu/amd/engine.hpp"
+#include "gpu/gpu_primitive.hpp"
 
 namespace dnnl {
 namespace impl {
 namespace gpu {
 namespace amd {
 
-struct hip_mask_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct hip_mask_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
 
     struct pd_t : public mask_pd_t {
         using mask_pd_t::mask_pd_t;
