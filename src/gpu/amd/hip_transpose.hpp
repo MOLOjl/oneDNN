@@ -39,7 +39,7 @@ struct hip_transpose_t : public primitive_t {
 
         DECLARE_COMMON_PD_T("hip:miopen:any", hip_transpose_t);
 
-        status_t init(engine_t *) {
+        status_t init(impl::engine_t *) {
             using namespace data_type;
 
             // TODO: do some check.

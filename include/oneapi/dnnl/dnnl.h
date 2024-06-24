@@ -1361,7 +1361,28 @@ dnnl_status_t DNNL_API dnnl_memory_destroy(dnnl_memory_t memory);
 /// @addtogroup dnnl_api_primitives
 /// @{
 
-/// @addtogroup dnnl_api_mask
+/// @addtogroup dnnl_api_where
+/// @{
+
+/// Creates a primitive descriptor for a where primitive.
+///
+/// @param where_primitive_desc Output primitive descriptor.
+/// @param cond_desc Source memory descriptor.
+/// @param src1_desc Source memory descriptor.
+/// @param src2_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_where_primitive_desc_create(
+        dnnl_primitive_desc_t *where_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t cond_desc,
+        const_dnnl_memory_desc_t src1_desc,
+        const_dnnl_memory_desc_t src2_desc,
+        const_dnnl_memory_desc_t dst_desc);
+
+/// @} dnnl_api_where
+
+/// @addtogroup dnnl_api_gather
 /// @{
 
 /// Creates a primitive descriptor for a gather primitive.
@@ -1380,6 +1401,9 @@ dnnl_status_t DNNL_API dnnl_gather_primitive_desc_create(
         int gather_dim);
 
 /// @} dnnl_api_gather
+
+/// @addtogroup dnnl_api_mask
+/// @{
 
 /// Creates a primitive descriptor for a mask primitive.
 ///

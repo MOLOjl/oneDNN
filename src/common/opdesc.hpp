@@ -25,6 +25,14 @@
 
 namespace dnnl {
 namespace impl {
+struct where_desc_t {
+    primitive_kind_t primitive_kind;
+    memory_desc_t cond_desc;
+    memory_desc_t src1_desc;
+    memory_desc_t src2_desc;
+    memory_desc_t dst_desc;
+};
+
 struct gather_desc_t {
     primitive_kind_t primitive_kind;
     memory_desc_t src_desc;
@@ -645,6 +653,7 @@ struct op_desc_t {
         transpose_desc_t transpose;
         mask_desc_t mask;
         gather_desc_t gather;
+        where_desc_t where;
     };
 
 #define DECL_CTOR_AND_CONVERTERS(c_type) \
@@ -681,7 +690,8 @@ struct op_desc_t {
     DECL_CTOR_AND_CONVERTERS(transpose_desc_t);
     DECL_CTOR_AND_CONVERTERS(mask_desc_t);
     DECL_CTOR_AND_CONVERTERS(gather_desc_t);
-    
+    DECL_CTOR_AND_CONVERTERS(where_desc_t);
+
     // concat_desc_t and sum_desc_t have data members which have non-trivial
     // special member functions hence the default destructor is implicitly
     // deleted by the compiler which causes a warning on Windows so we should

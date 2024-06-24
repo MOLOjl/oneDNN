@@ -108,6 +108,8 @@ struct primitive : public handle<dnnl_primitive_t> {
     enum class kind {
         /// Undefined primitive
         undef = dnnl_undefined_primitive,
+        /// A where primitive.
+        where = dnnl_where,
         /// A gather primitive.
         gather = dnnl_gather,
         /// A mask primitive.
@@ -4900,6 +4902,101 @@ protected:
 
 /// @} dnnl_api_primitives_common
 
+/// @addtogroup dnnl_api_where where
+///
+/// Primitive of where, Return a tensor of elements selected
+/// from either input or other, depending on condition.
+///
+/// @sa @ref dev_guide_where in developer guide
+///
+/// @{
+
+/// Where primitive.
+struct where : public primitive {
+    /// Primitive descriptor for a mask primitive.
+    struct primitive_desc : public primitive_desc_base {
+        using primitive_desc_base::primitive_desc_base;
+
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for mask primitive.
+        ///
+        /// @param cond Condition memory object.
+        /// @param src1 Source memory object 1. 
+        /// @param src2 Source memory object 2.
+        /// @param dst Destination memory object. It is used to obtain the
+        ///     destination memory descriptor and engine.
+        /// @param allow_empty A flag signifying whether construction is allowed
+        ///     to fail without throwing an exception. In this case an empty
+        ///     object will be produced. This flag is optional and defaults to
+        ///     false.
+        primitive_desc(const engine &aengine, const memory &cond, const memory &src1,
+                const memory &src2, const memory &dst, bool allow_empty = false) {
+            dnnl_primitive_desc_t result;
+            auto cond_md = cond.get_desc();
+            auto src1_md = src1.get_desc();
+            auto src2_md = src2.get_desc();
+            auto dst_md = dst.get_desc();
+            dnnl_status_t status = dnnl_where_primitive_desc_create(&result,
+                    aengine.get(), cond_md.get(), src1_md.get(), src2_md.get(), 
+                    dst_md.get());
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not create a primitive descriptor for a where "
+                        "primitive");
+            reset(status == dnnl_success ? result : dnnl_primitive_desc_t());
+        }
+
+        /// Constructs a primitive descriptor for where primitive from a C
+        /// API primitive descriptor which must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for where primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : primitive_desc_base(pd, dnnl::primitive::kind::where) {}
+
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc cond_desc() const { return base::src_desc(0); }
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc src1_desc() const { return base::src_desc(1); }
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc src2_desc() const { return base::src_desc(2); }
+
+        /// @copydoc dnnl::primitive_desc_base::dst_desc()const
+        memory::desc dst_desc() const { return base::dst_desc(0); }
+    };
+
+    /// Default constructor. Produces an empty object.
+    where() = default;
+
+    /// Constructs a where primitive.
+    /// @param pd Primitive descriptor for where primitive.
+    where(const primitive_desc &pd) : primitive(pd.get()) {}
+
+    /// Constructs a where primitive from a cache blob.
+    /// @param pd Primitive descriptor for where primitive.
+    /// @param cache_blob Cache blob.
+    where(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd.get(), cache_blob) {}
+
+    using primitive::execute;
+
+    /// Executes the where primitive.
+    ///
+    /// @param astream Stream object. The stream must belong to the same engine
+    ///     as the primitive.
+    /// @param src Source memory object.
+    /// @param dst Destination memory object.
+    /// @param idx index memory object.
+    void execute(const stream &astream, memory &cond, memory &src1, 
+        memory &src2, memory &dst, memory &idx) const {
+        primitive::execute(astream, {{DNNL_ARG_SRC_0, cond}, {DNNL_ARG_SRC_1, src1}, 
+            {DNNL_ARG_SRC_2, src2}, {DNNL_ARG_TO, dst}});
+    }
+};
+
+/// @} dnnl_api_where
+
 /// @addtogroup dnnl_api_gather gather
 ///
 /// A primitive to gather data from input to output follow the idx memory objects. 
@@ -4988,7 +5085,7 @@ struct gather : public primitive {
     }
 };
 
-/// @} dnnl_api_mask
+/// @} dnnl_api_gather
 
 /// @addtogroup dnnl_api_mask mask
 ///

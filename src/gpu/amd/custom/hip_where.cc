@@ -23,107 +23,7 @@
 
 // Kernel for where op. condition, input, other should be broadcastable, and the broadcasted shape is the same as output's shape.
 __global__ void where_kernel_f32(char* condition, float* input, float* other, float* output, size_t* dim_c, size_t* dims_input, 
-  size_t* dims_otherther, size_t* dims_b, size_t* stride_c, size_t* strides_input, size_t* strides_other, size_t* strides_b, 
-  int num_dims, size_t total_elements)
-{
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int Scope = blockDim.x * gridDim.x;
-  int IterCount = total_elements / Scope + 1;
-  int coordinate_b[MAX_DIM];  // broadcasted coordinate, also output coordinate
-  int coordinate[MAX_DIM];
-  
-  __shared__ size_t s_dims_b[MAX_DIM]; // broadcasted shape
-
-  __shared__ size_t s_stride_c[MAX_DIM];
-  __shared__ size_t s_strides_input[MAX_DIM];
-  __shared__ size_t s_strides_other[MAX_DIM];
-  __shared__ size_t s_strides_b[MAX_DIM]; // broadcasted strides
-
-  if(idx < num_dims)
-  {
-    s_dim_c[threadIdx.x] = dim_c[threadIdx.x];
-    s_dims_input[threadIdx.x] = dims_input[threadIdx.x];
-    s_dims_other[threadIdx.x] = dims_other[threadIdx.x];
-    s_strides_c[threadIdx.x] = strides_c[threadIdx.x];
-    s_strides_input[threadIdx.x] = strides_input[threadIdx.x];
-    s_strides_other[threadIdx.x] = strides_other[threadIdx.x];
-    s_strides_b[threadIdx.x] = strides_b[threadIdx.x];
-  }
-
-  __syncthreads();
-
-  for(int i = 0; i < IterCount; i++)
-  {
-    size_t idx_offset = idx + Scope * i;
-    if(idx_offset >= total_elements)
-      continue;
-
-    // broadcast coordinate
-    size_t margin = idx_offset;
-    for(int j = 0; j < num_dims; j++)
-    {
-      coordinate_b[j] = margin / s_strides_b[j];
-      margin = margin % s_strides_b[j];
-    }
-
-    // condition coordinate
-    for(int j = 0; j < num_dims; j++)
-    {
-      // or s_dim_c[j] == 1, means we need broadcast
-      if(coordinate_b[j] > s_dim_c[j]-1)
-        coordinate[j] = 0;
-      else
-        coordinate[j] = coordinate_b[j];
-    }
-    // condition offset
-    int c_offset = 0;
-    for(int j=0; j<num_dims; j++){
-      c_offset += coordinate[j]*s_stride_c[j];
-    }
-    // read condition
-    char cond = condition[c_offset];
-
-    // input coordinate
-    for(int j = 0; j < num_dims; j++)
-    {
-      if(coordinate_b[j] > s_dims_input[j]-1)
-        coordinate[j] = 0;
-      else
-        coordinate[j] = coordinate_b[j];
-    }
-    // input offset
-    int i_offset = 0;
-    for(int j=0; j<num_dims; j++){
-      i_offset += coordinate[j]*s_stride_i[j];
-    }
-    // read input (positive value)
-    float p_value = input[i_offset];
-
-    // other coordinate
-    for(int j = 0; j < num_dims; j++)
-    {
-      if(coordinate_b[j] > s_dims_otherther[j]-1)
-        coordinate[j] = 0;
-      else
-        coordinate[j] = coordinate_b[j];
-    }
-    // other offset
-    int other_offset = 0;
-    for(int j=0; j<num_dims; j++){
-      other_offset += coordinate[j]*s_strides_otherther[j];
-    }
-    // read other (nagetive value)
-    float n_value = other[other_offset];
-
-    float output_value = cond != 0 ? p_value : n_value;
-    // write
-    output[idx_offset] = output_value;
-  }
-}
-
-// Kernel for where op. condition, input, other should be broadcastable, and the broadcasted shape is the same as output's shape.
-__global__ void where_kernel_f16(char* condition, half* input, half* other, half* output, size_t* dim_c, size_t* dims_input, 
-  size_t* dims_other, size_t* dims_b, size_t* stride_c, size_t* strides_input, size_t* strides_other, size_t* strides_b, 
+  size_t* dims_other, size_t* dims_b, size_t* strides_c, size_t* strides_input, size_t* strides_other, size_t* strides_b, 
   int num_dims, size_t total_elements)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -137,7 +37,7 @@ __global__ void where_kernel_f16(char* condition, half* input, half* other, half
   __shared__ size_t s_dim_c[MAX_DIM];
   __shared__ size_t s_dims_input[MAX_DIM];
   __shared__ size_t s_dims_other[MAX_DIM];
-  __shared__ size_t s_stride_c[MAX_DIM];
+  __shared__ size_t s_strides_c[MAX_DIM];
   __shared__ size_t s_strides_input[MAX_DIM];
   __shared__ size_t s_strides_other[MAX_DIM];
   __shared__ size_t s_strides_b[MAX_DIM]; // broadcasted strides
@@ -181,7 +81,7 @@ __global__ void where_kernel_f16(char* condition, half* input, half* other, half
     // condition offset
     int c_offset = 0;
     for(int j=0; j<num_dims; j++){
-      c_offset += coordinate[j]*s_stride_c[j];
+      c_offset += coordinate[j]*s_strides_c[j];
     }
     // read condition
     char cond = condition[c_offset];
@@ -197,7 +97,110 @@ __global__ void where_kernel_f16(char* condition, half* input, half* other, half
     // input offset
     int i_offset = 0;
     for(int j=0; j<num_dims; j++){
-      i_offset += coordinate[j]*s_stride_i[j];
+      i_offset += coordinate[j]*s_strides_input[j];
+    }
+    // read input (positive value)
+    float p_value = input[i_offset];
+
+    // other coordinate
+    for(int j = 0; j < num_dims; j++)
+    {
+      if(coordinate_b[j] > s_dims_other[j]-1)
+        coordinate[j] = 0;
+      else
+        coordinate[j] = coordinate_b[j];
+    }
+    // other offset
+    int other_offset = 0;
+    for(int j=0; j<num_dims; j++){
+      other_offset += coordinate[j]*s_strides_other[j];
+    }
+    // read other (nagetive value)
+    float n_value = other[other_offset];
+
+    float output_value = cond != 0 ? p_value : n_value;
+    // write
+    output[idx_offset] = output_value;
+  }
+}
+
+// Kernel for where op. condition, input, other should be broadcastable, and the broadcasted shape is the same as output's shape.
+__global__ void where_kernel_f16(char* condition, half* input, half* other, half* output, size_t* dim_c, size_t* dims_input, 
+  size_t* dims_other, size_t* dims_b, size_t* strides_c, size_t* strides_input, size_t* strides_other, size_t* strides_b, 
+  int num_dims, size_t total_elements)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int Scope = blockDim.x * gridDim.x;
+  int IterCount = total_elements / Scope + 1;
+  int coordinate_b[MAX_DIM];  // broadcasted coordinate, also output coordinate
+  int coordinate[MAX_DIM];
+  
+  __shared__ size_t s_dims_b[MAX_DIM]; // broadcasted shape
+
+  __shared__ size_t s_dim_c[MAX_DIM];
+  __shared__ size_t s_dims_input[MAX_DIM];
+  __shared__ size_t s_dims_other[MAX_DIM];
+  __shared__ size_t s_strides_c[MAX_DIM];
+  __shared__ size_t s_strides_input[MAX_DIM];
+  __shared__ size_t s_strides_other[MAX_DIM];
+  __shared__ size_t s_strides_b[MAX_DIM]; // broadcasted strides
+
+  if(idx < num_dims)
+  {
+    s_dim_c[threadIdx.x] = dim_c[threadIdx.x];
+    s_dims_input[threadIdx.x] = dims_input[threadIdx.x];
+    s_dims_other[threadIdx.x] = dims_other[threadIdx.x];
+    s_strides_c[threadIdx.x] = strides_c[threadIdx.x];
+    s_strides_input[threadIdx.x] = strides_input[threadIdx.x];
+    s_strides_other[threadIdx.x] = strides_other[threadIdx.x];
+    s_strides_b[threadIdx.x] = strides_b[threadIdx.x];
+  }
+
+  __syncthreads();
+
+  for(int i = 0; i < IterCount; i++)
+  {
+    size_t idx_offset = idx + Scope * i;
+    if(idx_offset >= total_elements)
+      continue;
+
+    // broadcast coordinate
+    size_t margin = idx_offset;
+    for(int j = 0; j < num_dims; j++)
+    {
+      coordinate_b[j] = margin / s_strides_b[j];
+      margin = margin % s_strides_b[j];
+    }
+
+    // condition coordinate
+    for(int j = 0; j < num_dims; j++)
+    {
+      // or s_dim_c[j] == 1, means we need broadcast
+      if(coordinate_b[j] > s_dim_c[j]-1)
+        coordinate[j] = 0;
+      else
+        coordinate[j] = coordinate_b[j];
+    }
+    // condition offset
+    int c_offset = 0;
+    for(int j=0; j<num_dims; j++){
+      c_offset += coordinate[j]*s_strides_c[j];
+    }
+    // read condition
+    char cond = condition[c_offset];
+
+    // input coordinate
+    for(int j = 0; j < num_dims; j++)
+    {
+      if(coordinate_b[j] > s_dims_input[j]-1)
+        coordinate[j] = 0;
+      else
+        coordinate[j] = coordinate_b[j];
+    }
+    // input offset
+    int i_offset = 0;
+    for(int j=0; j<num_dims; j++){
+      i_offset += coordinate[j]*s_strides_input[j];
     }
     // read input (positive value)
     half p_value = input[i_offset];
@@ -219,6 +222,109 @@ __global__ void where_kernel_f16(char* condition, half* input, half* other, half
     half n_value = other[other_offset];
 
     half output_value = cond != 0 ? p_value : n_value;
+    // write
+    output[idx_offset] = output_value;
+  }
+}
+
+// Kernel for where op. condition, input, other should be broadcastable, and the broadcasted shape is the same as output's shape.
+__global__ void where_kernel_i32(char* condition, int32_t* input, int32_t* other, int32_t* output, size_t* dim_c, size_t* dims_input, 
+  size_t* dims_other, size_t* dims_b, size_t* strides_c, size_t* strides_input, size_t* strides_other, size_t* strides_b, 
+  int num_dims, size_t total_elements)
+{
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  int Scope = blockDim.x * gridDim.x;
+  int IterCount = total_elements / Scope + 1;
+  int coordinate_b[MAX_DIM];  // broadcasted coordinate, also output coordinate
+  int coordinate[MAX_DIM];
+  
+  __shared__ size_t s_dims_b[MAX_DIM]; // broadcasted shape
+
+  __shared__ size_t s_dim_c[MAX_DIM];
+  __shared__ size_t s_dims_input[MAX_DIM];
+  __shared__ size_t s_dims_other[MAX_DIM];
+  __shared__ size_t s_strides_c[MAX_DIM];
+  __shared__ size_t s_strides_input[MAX_DIM];
+  __shared__ size_t s_strides_other[MAX_DIM];
+  __shared__ size_t s_strides_b[MAX_DIM]; // broadcasted strides
+
+  if(idx < num_dims)
+  {
+    s_dim_c[threadIdx.x] = dim_c[threadIdx.x];
+    s_dims_input[threadIdx.x] = dims_input[threadIdx.x];
+    s_dims_other[threadIdx.x] = dims_other[threadIdx.x];
+    s_strides_c[threadIdx.x] = strides_c[threadIdx.x];
+    s_strides_input[threadIdx.x] = strides_input[threadIdx.x];
+    s_strides_other[threadIdx.x] = strides_other[threadIdx.x];
+    s_strides_b[threadIdx.x] = strides_b[threadIdx.x];
+  }
+
+  __syncthreads();
+
+  for(int i = 0; i < IterCount; i++)
+  {
+    size_t idx_offset = idx + Scope * i;
+    if(idx_offset >= total_elements)
+      continue;
+
+    // broadcast coordinate
+    size_t margin = idx_offset;
+    for(int j = 0; j < num_dims; j++)
+    {
+      coordinate_b[j] = margin / s_strides_b[j];
+      margin = margin % s_strides_b[j];
+    }
+
+    // condition coordinate
+    for(int j = 0; j < num_dims; j++)
+    {
+      // or s_dim_c[j] == 1, means we need broadcast
+      if(coordinate_b[j] > s_dim_c[j]-1)
+        coordinate[j] = 0;
+      else
+        coordinate[j] = coordinate_b[j];
+    }
+    // condition offset
+    int c_offset = 0;
+    for(int j=0; j<num_dims; j++){
+      c_offset += coordinate[j]*s_strides_c[j];
+    }
+    // read condition
+    char cond = condition[c_offset];
+
+    // input coordinate
+    for(int j = 0; j < num_dims; j++)
+    {
+      if(coordinate_b[j] > s_dims_input[j]-1)
+        coordinate[j] = 0;
+      else
+        coordinate[j] = coordinate_b[j];
+    }
+    // input offset
+    int i_offset = 0;
+    for(int j=0; j<num_dims; j++){
+      i_offset += coordinate[j]*s_strides_input[j];
+    }
+    // read input (positive value)
+    int32_t p_value = input[i_offset];
+
+    // other coordinate
+    for(int j = 0; j < num_dims; j++)
+    {
+      if(coordinate_b[j] > s_dims_other[j]-1)
+        coordinate[j] = 0;
+      else
+        coordinate[j] = coordinate_b[j];
+    }
+    // other offset
+    int other_offset = 0;
+    for(int j=0; j<num_dims; j++){
+      other_offset += coordinate[j]*s_strides_other[j];
+    }
+    // read other (nagetive value)
+    int32_t n_value = other[other_offset];
+
+    int32_t output_value = cond != 0 ? p_value : n_value;
     // write
     output[idx_offset] = output_value;
   }
@@ -309,6 +415,12 @@ void where(void *condition, void *input, void *other, void *output,
   if(dtype == 1)
     hipLaunchKernelGGL(where_kernel_f16, dim3(numBlocks), dim3(blockSize), 0, 0, 
       (char*)condition, (half*)input, (half*)other, (half*)output, 
+      d_dims_c, d_dims_i, d_dims_other, d_dims_o, 
+      d_strides_c, d_strides_i, d_strides_other, d_strides_o, 
+      num_dims, total_elements);
+  if(dtype == 2)
+    hipLaunchKernelGGL(where_kernel_i32, dim3(numBlocks), dim3(blockSize), 0, 0, 
+      (char*)condition, (int32_t*)input, (int32_t*)other, (int32_t*)output, 
       d_dims_c, d_dims_i, d_dims_other, d_dims_o, 
       d_strides_c, d_strides_i, d_strides_other, d_strides_o, 
       num_dims, total_elements);

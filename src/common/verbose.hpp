@@ -192,6 +192,7 @@ struct component_t {
         transpose = 1 << 24,
         mask = 1 << 25,
         gather = 1 << 26,
+        where = 1 << 27,
         all = (uint32_t)-1,
     };
 };

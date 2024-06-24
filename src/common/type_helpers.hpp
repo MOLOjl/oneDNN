@@ -826,6 +826,15 @@ inline bool operator==(const gather_desc_t &lhs, const gather_desc_t &rhs) {
     return ret;
 }
 
+inline bool operator==(const where_desc_t &lhs, const where_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(cond_desc)
+            && COMPARE_DESC_MEMBERS(src1_desc)
+            && COMPARE_DESC_MEMBERS(src2_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc);
+    return ret;
+}
+
 inline bool operator==(const zero_pad_desc_t &lhs, const zero_pad_desc_t &rhs) {
     bool ret = COMPARE_DESC_MEMBERS(primitive_kind);
     return ret;
@@ -1161,6 +1170,7 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         CASE_OP_DESC(transpose);
         CASE_OP_DESC(mask);
         CASE_OP_DESC(gather);
+        CASE_OP_DESC(where);
 
         // Internal descs
         CASE_OP_DESC(zero_pad);

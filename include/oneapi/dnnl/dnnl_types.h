@@ -2023,6 +2023,8 @@ typedef enum {
     dnnl_mask,
     /// A gather primitive.
     dnnl_gather,
+    /// A where primitive.
+    dnnl_where,
 
     /// Parameter to allow internal only primitives without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.

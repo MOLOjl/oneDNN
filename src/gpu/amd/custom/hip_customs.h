@@ -24,6 +24,10 @@ void mask(void *input, void *output, void *mask, const size_t *dims, const size_
 
 void gather(void *input, void *output, void *index, const size_t *dims, int num_dims, int gather_dim, int dtype);
 
+void where(void *condition, void *input, void *other, void *output, 
+  const size_t *dims_c, const size_t *dims_i, const size_t *dims_other, const size_t *dims_o, 
+  int num_dims, int dtype);
+
 void print_device_array(void* dev_a, size_t length, int dtype);
 
 }

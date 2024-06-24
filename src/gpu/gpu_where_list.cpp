@@ -17,7 +17,7 @@
 #include "gpu/gpu_impl_list.hpp"
 
 #if DNNL_GPU_VENDOR == DNNL_VENDOR_AMD
-#include "gpu/amd/hip_gather.hpp"
+#include "gpu/amd/hip_where.hpp"
 #endif
 
 namespace dnnl {
@@ -27,14 +27,14 @@ namespace gpu {
 namespace {
 
 // clang-format off
-constexpr impl_list_item_t impl_list[] = REG_GATHER_P({
-        GPU_INSTANCE_AMD(amd::hip_gather_t)
+constexpr impl_list_item_t impl_list[] = REG_WHERE_P({
+        GPU_INSTANCE_AMD(amd::hip_where_t)
         nullptr,
 });
 // clang-format on
 } // namespace
 
-const impl_list_item_t *get_gather_impl_list(const gather_desc_t *desc) {
+const impl_list_item_t *get_where_impl_list(const where_desc_t *desc) {
     UNUSED(desc);
     return impl_list;
 }

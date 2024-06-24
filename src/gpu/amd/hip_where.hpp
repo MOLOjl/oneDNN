@@ -15,13 +15,13 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef GPU_AMD_HIP_MASK_HPP
-#define GPU_AMD_HIP_MASK_HPP
+#ifndef GPU_AMD_HIP_WHERE_HPP
+#define GPU_AMD_HIP_WHERE_HPP
 
-#include "common/gather_pd.hpp"
+#include "common/where_pd.hpp"
 #include "common/c_types_map.hpp"
 #include "common/primitive.hpp"
-#include "gpu/amd/hip_gather_impl.hpp"
+#include "gpu/amd/hip_where_impl.hpp"
 #include "gpu/amd/sycl_hip_engine.hpp"
 #include "gpu/amd/sycl_hip_utils.hpp"
 #include <miopen/miopen.h>
@@ -31,13 +31,13 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-struct hip_gather_t : public primitive_t {
+struct hip_where_t : public primitive_t {
     using primitive_t::primitive_t;
 
-    struct pd_t : public gather_pd_t {
-        using gather_pd_t::gather_pd_t;
+    struct pd_t : public where_pd_t {
+        using where_pd_t::where_pd_t;
 
-        DECLARE_COMMON_PD_T("hip:miopen:any", hip_gather_t);
+        DECLARE_COMMON_PD_T("hip:miopen:any", hip_where_t);
 
         status_t init(impl::engine_t *) {
             using namespace data_type;
@@ -45,40 +45,48 @@ struct hip_gather_t : public primitive_t {
             // TODO: do some check.
             // bool ok = true;
 
-            if (check_for_zero_dims()) 
+            if (check_for_zero_dims()) return status::success;
+            if (check_no_blocking()) 
                 return status::invalid_arguments;
-            if (!check_data_types()) 
+            if(!check_data_types())
                 return status::invalid_arguments;
-            
-            gather_impl_.reset(new hip_gather_impl_t());
-            return gather_impl_->init(this);
+
+            where_impl_.reset(new hip_where_impl_t());
+            return where_impl_->init(this);
         }
 
         bool check_for_zero_dims() const {
-            bool src_zero = has_zero_dims(src_md()->dims, src_md()->ndims);
+            bool cond_zero = has_zero_dims(src_md(0)->dims, src_md(0)->ndims);
+            bool src1_zero = has_zero_dims(src_md(1)->dims, src_md(1)->ndims);
+            bool src2_zero = has_zero_dims(src_md(2)->dims, src_md(2)->ndims);
             bool dst_zero = has_zero_dims(dst_md()->dims, dst_md()->ndims);
-            bool idx_zero = has_zero_dims(idx_md()->dims, idx_md()->ndims);
-            return src_zero || dst_zero || idx_zero;
+            return cond_zero || src1_zero || src2_zero || dst_zero;
         }
 
         bool check_no_blocking() const {
-            // Blocking is not supported by MIOPENOpTensor, return false if any
-            // blocks are present
-            return src_md(0)->format_desc.blocking.inner_nblks
-                    + src_md(1)->format_desc.blocking.inner_nblks
-                    + dst_md()->format_desc.blocking.inner_nblks
-                    == 0;
+            // Blocking is not supported, return false if any blocks are present
+            bool cond_blk = src_md(0)->format_desc.blocking.inner_nblks;
+            bool src1_blk = src_md(1)->format_desc.blocking.inner_nblks;
+            bool src2_blk = src_md(2)->format_desc.blocking.inner_nblks;
+            bool dst_blk = dst_md()->format_desc.blocking.inner_nblks;
+
+            return cond_blk || src1_blk || src2_blk || dst_blk;
         }
 
         bool check_data_types() const {
             using namespace data_type;
-            data_type_t input_type = src_md()->data_type;
-            data_type_t output_type = dst_md()->data_type;
-            bool type_same = (input_type == output_type);
-            return type_same;
-        }
+            data_type_t cond_type = src_md(0)->data_type;
+            data_type_t src1_type = src_md(1)->data_type;
+            data_type_t src2_type = src_md(2)->data_type;
+            data_type_t dst_type = dst_md()->data_type;
 
-        std::shared_ptr<hip_gather_impl_t> gather_impl_;
+            bool type_ok = (src1_type == src2_type);
+            type_ok = type_ok && (src1_type == dst_type);
+            type_ok = type_ok && (cond_type == dnnl::impl::data_type_t::dnnl_s8);
+            return type_ok;
+        }
+        
+        std::shared_ptr<hip_where_impl_t> where_impl_;
     };
 
     status_t execute(const exec_ctx_t &ctx) const override;
