@@ -91,6 +91,8 @@ bool key_t::operator==(const key_t &rhs) const {
             CASE(mask)
             CASE(gather)
             CASE(where)
+            CASE(multinormial)
+            CASE(embedding)
             CASE(zero_pad)
             default: assert(!"unknown primitive kind");
         }
@@ -756,6 +758,32 @@ size_t get_desc_hash(const where_desc_t &desc) {
     seed = hash_combine(seed, get_md_hash(desc.cond_desc));
     seed = hash_combine(seed, get_md_hash(desc.src1_desc));
     seed = hash_combine(seed, get_md_hash(desc.src2_desc));
+    seed = hash_combine(seed, get_md_hash(desc.dst_desc));
+    // Combined hash for softmax desc
+    return seed;
+}
+
+size_t get_desc_hash(const multinormial_desc_t &desc) {
+    size_t seed = 0;
+    // Kinds
+    seed = hash_combine(seed, static_cast<size_t>(desc.primitive_kind));
+    // Memory descriptors
+    seed = hash_combine(seed, get_md_hash(desc.weights_desc));
+    seed = hash_combine(seed, get_md_hash(desc.dst_desc));
+    seed = hash_combine(seed, desc.n_sample);
+    seed = hash_combine(seed, desc.seed);
+    seed = hash_combine(seed, desc.replacement);
+    // Combined hash for softmax desc
+    return seed;
+}
+
+size_t get_desc_hash(const embedding_desc_t &desc) {
+    size_t seed = 0;
+    // Kinds
+    seed = hash_combine(seed, static_cast<size_t>(desc.primitive_kind));
+    // Memory descriptors
+    seed = hash_combine(seed, get_md_hash(desc.src_desc));
+    seed = hash_combine(seed, get_md_hash(desc.dict_desc));
     seed = hash_combine(seed, get_md_hash(desc.dst_desc));
     // Combined hash for softmax desc
     return seed;

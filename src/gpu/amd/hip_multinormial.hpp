@@ -15,11 +15,11 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef GPU_AMD_HIP_GATHER_HPP
-#define GPU_AMD_HIP_GATHER_HPP
+#ifndef GPU_AMD_HIP_MULTINORMIAL_HPP
+#define GPU_AMD_HIP_MULTINORMIAL_HPP
 
-#include "common/gather_pd.hpp"
-#include "gpu/amd/hip_gather_impl.hpp"
+#include "common/multinormial_pd.hpp"
+#include "gpu/amd/hip_multinormial_impl.hpp"
 
 #include "gpu/amd/sycl_hip_utils.hpp"
 #include "common/c_types_map.hpp"
@@ -31,13 +31,13 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-struct hip_gather_t : public gpu::primitive_t {
+struct hip_multinormial_t : public gpu::primitive_t {
     using gpu::primitive_t::primitive_t;
 
-    struct pd_t : public gather_pd_t {
-        using gather_pd_t::gather_pd_t;
+    struct pd_t : public multinormial_pd_t {
+        using multinormial_pd_t::multinormial_pd_t;
 
-        DECLARE_COMMON_PD_T("hip:miopen:any", hip_gather_t);
+        DECLARE_COMMON_PD_T("hip:miopen:any", hip_multinormial_t);
 
         status_t init(impl::engine_t *) {
             using namespace data_type;
@@ -50,35 +50,30 @@ struct hip_gather_t : public gpu::primitive_t {
             if (!check_data_types()) 
                 return status::invalid_arguments;
             
-            gather_impl_.reset(new hip_gather_impl_t());
-            return gather_impl_->init(this);
+            multinormial_impl_.reset(new hip_multinormial_impl_t());
+            return multinormial_impl_->init(this);
         }
 
         bool check_for_zero_dims() const {
-            bool src_zero = has_zero_dims(src_md()->dims, src_md()->ndims);
             bool dst_zero = has_zero_dims(dst_md()->dims, dst_md()->ndims);
-            bool idx_zero = has_zero_dims(idx_md()->dims, idx_md()->ndims);
-            return src_zero || dst_zero || idx_zero;
+            bool weights_zero = has_zero_dims(weights_md()->dims, weights_md()->ndims);
+            return dst_zero || weights_zero;
         }
 
         bool check_no_blocking() const {
             // Blocking is not supported by MIOPENOpTensor, return false if any
             // blocks are present
-            return src_md(0)->format_desc.blocking.inner_nblks
-                    + src_md(1)->format_desc.blocking.inner_nblks
-                    + dst_md()->format_desc.blocking.inner_nblks
-                    == 0;
+            return dst_md()->format_desc.blocking.inner_nblks == 0;
         }
 
         bool check_data_types() const {
-            using namespace data_type;
-            data_type_t input_type = src_md()->data_type;
-            data_type_t output_type = dst_md()->data_type;
-            bool type_same = (input_type == output_type);
-            return type_same;
+            // using namespace data_type;
+            // weight type is int64 by default
+            // data_type_t weights_type = weights_md()->data_type;
+            return true;
         }
 
-        std::shared_ptr<hip_gather_impl_t> gather_impl_;
+        std::shared_ptr<hip_multinormial_impl_t> multinormial_impl_;
     };
 
     status_t execute(const exec_ctx_t &ctx) const override;

@@ -18,6 +18,11 @@
 
 namespace hip_custom {
 
+void multinormial(void *weight, void *output, const size_t *dims_weight, int num_dims_weight, int64_t n_sample, 
+  bool replacement, int64_t seed, int weight_dtype);
+
+void embedding(void *input, void *output, void *dictionary, const size_t *dims_i, const size_t *dims_dict, int num_dims_i, int dtype);
+
 void transpose(int dtype, void *input, void *output, const size_t *dims, int num_dims, int dim1, int dim2);
 
 void mask(void *input, void *output, void *mask, const size_t *dims, const size_t *dims_mask, int num_dims, float masked_value, int fp_length);
@@ -30,5 +35,6 @@ void where(void *condition, void *input, void *other, void *output,
 
 void print_device_array(void* dev_a, size_t length, int dtype);
 
+// dtype: 0:f32, 1:f16, 2:i32, 3:f64, 4:i64
 }
 

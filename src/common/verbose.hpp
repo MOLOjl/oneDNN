@@ -193,6 +193,8 @@ struct component_t {
         mask = 1 << 25,
         gather = 1 << 26,
         where = 1 << 27,
+        multinormial = 1 << 28,
+        embedding = 1 << 29,
         all = (uint32_t)-1,
     };
 };

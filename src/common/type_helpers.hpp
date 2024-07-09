@@ -836,6 +836,24 @@ inline bool operator==(const where_desc_t &lhs, const where_desc_t &rhs) {
     return ret;
 }
 
+inline bool operator==(const multinormial_desc_t &lhs, const multinormial_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(weights_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(n_sample)
+            && COMPARE_DESC_MEMBERS(seed)
+            && COMPARE_DESC_MEMBERS(replacement);
+    return ret;
+}
+
+inline bool operator==(const embedding_desc_t &lhs, const embedding_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dict_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc);
+    return ret;
+}
+
 inline bool operator==(const zero_pad_desc_t &lhs, const zero_pad_desc_t &rhs) {
     bool ret = COMPARE_DESC_MEMBERS(primitive_kind);
     return ret;
@@ -1172,6 +1190,8 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         CASE_OP_DESC(mask);
         CASE_OP_DESC(gather);
         CASE_OP_DESC(where);
+        CASE_OP_DESC(multinormial);
+        CASE_OP_DESC(embedding);
 
         // Internal descs
         CASE_OP_DESC(zero_pad);

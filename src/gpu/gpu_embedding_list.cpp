@@ -17,7 +17,7 @@
 #include "gpu/gpu_impl_list.hpp"
 
 #if DNNL_GPU_VENDOR == DNNL_VENDOR_AMD
-#include "gpu/amd/hip_mask.hpp"
+#include "gpu/amd/hip_embedding.hpp"
 #endif
 
 namespace dnnl {
@@ -27,14 +27,14 @@ namespace gpu {
 namespace {
 
 // clang-format off
-constexpr impl_list_item_t impl_list[] = REG_MASK_P({
-        GPU_INSTANCE_AMD(amd::hip_mask_t)
+constexpr impl_list_item_t impl_list[] = REG_EMBEDDING_P({
+        GPU_INSTANCE_AMD(amd::hip_embedding_t)
         nullptr,
 });
 // clang-format on
 } // namespace
 
-const impl_list_item_t *get_mask_impl_list(const mask_desc_t *desc) {
+const impl_list_item_t *get_embedding_impl_list(const embedding_desc_t *desc) {
     UNUSED(desc);
     return impl_list;
 }

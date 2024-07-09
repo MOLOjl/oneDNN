@@ -108,6 +108,10 @@ struct primitive : public handle<dnnl_primitive_t> {
     enum class kind {
         /// Undefined primitive
         undef = dnnl_undefined_primitive,
+        /// A multinormial primitive.
+        multinormial = dnnl_multinormial,
+        /// A embedding primitive.
+        embedding = dnnl_embedding,
         /// A where primitive.
         where = dnnl_where,
         /// A gather primitive.
@@ -4902,6 +4906,179 @@ protected:
 
 /// @} dnnl_api_primitives_common
 
+/// @addtogroup dnnl_api_multinormial multinormial
+///
+/// Primitive of multinormial.
+///
+/// @sa @ref dev_guide_multinormial in developer guide
+///
+/// @{
+
+/// Multinormial primitive.
+struct multinormial : public primitive {
+    /// Primitive descriptor for a multinormial primitive.
+    struct primitive_desc : public primitive_desc_base {
+        using primitive_desc_base::primitive_desc_base;
+
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for mask primitive.
+        ///
+        /// @param weights Weights memory object.
+        /// @param dst Destination memory object. It is used to obtain the
+        ///     destination memory descriptor and engine.
+        /// @param allow_empty A flag signifying whether construction is allowed
+        ///     to fail without throwing an exception. In this case an empty
+        ///     object will be produced. This flag is optional and defaults to
+        ///     false.
+        primitive_desc(const engine &aengine, const memory &weights, const memory &dst, 
+                int64_t n_sample, bool replacement, int64_t seed, 
+                bool allow_empty = false) {
+            dnnl_primitive_desc_t result;
+            auto weights_md = weights.get_desc();
+            auto dst_md = dst.get_desc();
+            dnnl_status_t status = dnnl_multinormial_primitive_desc_create(&result,
+                    aengine.get(), weights_md.get(), dst_md.get(), 
+                    n_sample, replacement, seed);
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not create a primitive descriptor for a multinormial "
+                        "primitive");
+            reset(status == dnnl_success ? result : dnnl_primitive_desc_t());
+        }
+
+        /// Constructs a primitive descriptor for multinormial primitive from a C
+        /// API primitive descriptor which must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for multinormial primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : primitive_desc_base(pd, dnnl::primitive::kind::multinormial) {}
+
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc weights_desc() const { return base::weights_desc(0); }
+        /// @copydoc dnnl::primitive_desc_base::dst_desc()const
+        memory::desc dst_desc() const { return base::dst_desc(0); }
+    };
+
+    /// Default constructor. Produces an empty object.
+    multinormial() = default;
+
+    /// Constructs a multinormial primitive.
+    /// @param pd Primitive descriptor for multinormial primitive.
+    multinormial(const primitive_desc &pd) : primitive(pd.get()) {}
+
+    /// Constructs a multinormial primitive from a cache blob.
+    /// @param pd Primitive descriptor for multinormial primitive.
+    /// @param cache_blob Cache blob.
+    multinormial(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd.get(), cache_blob) {}
+
+    using primitive::execute;
+
+    /// Executes the multinormial primitive.
+    ///
+    /// @param astream Stream object. The stream must belong to the same engine
+    ///     as the primitive.
+    /// @param weights Weights memory object.
+    /// @param dst Destination memory object.
+    void execute(const stream &astream, memory &weights, 
+        memory &dst) const {
+        primitive::execute(astream, {{DNNL_ARG_WEIGHTS, weights}, 
+            {DNNL_ARG_TO, dst}});
+    }
+};
+
+/// @} dnnl_api_multinormial
+
+/// @addtogroup dnnl_api_embedding embedding
+///
+/// Primitive of embedding.
+///
+/// @sa @ref dev_guide_embedding in developer guide
+///
+/// @{
+
+/// Embedding primitive.
+struct embedding : public primitive {
+    /// Primitive descriptor for a embedding primitive.
+    struct primitive_desc : public primitive_desc_base {
+        using primitive_desc_base::primitive_desc_base;
+
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for mask primitive.
+        ///
+        /// @param src Source memory object. 
+        /// @param dict Dictionary memory object.
+        /// @param dst Destination memory object. It is used to obtain the
+        ///     destination memory descriptor and engine.
+        /// @param allow_empty A flag signifying whether construction is allowed
+        ///     to fail without throwing an exception. In this case an empty
+        ///     object will be produced. This flag is optional and defaults to
+        ///     false.
+        primitive_desc(const engine &aengine, const memory &src, const memory &dict, 
+                const memory &dst, bool allow_empty = false) {
+            dnnl_primitive_desc_t result;
+            auto src_md = src.get_desc();
+            auto dict_md = dict.get_desc();
+            auto dst_md = dst.get_desc();
+            dnnl_status_t status = dnnl_embedding_primitive_desc_create(&result,
+                    aengine.get(), src_md.get(), dict_md.get(), dst_md.get());
+            if (!allow_empty)
+                error::wrap_c_api(status,
+                        "could not create a primitive descriptor for a embedding "
+                        "primitive");
+            reset(status == dnnl_success ? result : dnnl_primitive_desc_t());
+        }
+
+        /// Constructs a primitive descriptor for embedding primitive from a C
+        /// API primitive descriptor which must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for embedding primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : primitive_desc_base(pd, dnnl::primitive::kind::embedding) {}
+
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc src_desc() const { return base::src_desc(0); }
+        /// @copydoc dnnl::primitive_desc_base::src_desc()const
+        memory::desc dict_desc() const { return base::weights_desc(0); }
+        /// @copydoc dnnl::primitive_desc_base::dst_desc()const
+        memory::desc dst_desc() const { return base::dst_desc(0); }
+    };
+
+    /// Default constructor. Produces an empty object.
+    embedding() = default;
+
+    /// Constructs a embedding primitive.
+    /// @param pd Primitive descriptor for embedding primitive.
+    embedding(const primitive_desc &pd) : primitive(pd.get()) {}
+
+    /// Constructs a embedding primitive from a cache blob.
+    /// @param pd Primitive descriptor for embedding primitive.
+    /// @param cache_blob Cache blob.
+    embedding(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd.get(), cache_blob) {}
+
+    using primitive::execute;
+
+    /// Executes the embedding primitive.
+    ///
+    /// @param astream Stream object. The stream must belong to the same engine
+    ///     as the primitive.
+    /// @param src Source memory object.
+    /// @param dict Dictionary(Weights) memory object.
+    /// @param dst Destination memory object.
+    void execute(const stream &astream, memory &src, memory &dict, 
+        memory &dst) const {
+        primitive::execute(astream, {{DNNL_ARG_SRC, src}, {DNNL_ARG_WEIGHTS, dict}, 
+            {DNNL_ARG_TO, dst}});
+    }
+};
+
+/// @} dnnl_api_embedding
+
 /// @addtogroup dnnl_api_where where
 ///
 /// Primitive of where, Return a tensor of elements selected
@@ -4913,7 +5090,7 @@ protected:
 
 /// Where primitive.
 struct where : public primitive {
-    /// Primitive descriptor for a mask primitive.
+    /// Primitive descriptor for a where primitive.
     struct primitive_desc : public primitive_desc_base {
         using primitive_desc_base::primitive_desc_base;
 
@@ -4985,11 +5162,12 @@ struct where : public primitive {
     ///
     /// @param astream Stream object. The stream must belong to the same engine
     ///     as the primitive.
-    /// @param src Source memory object.
+    /// @param cond Condition memory object.
+    /// @param src1 Source1 memory object.
+    /// @param src2 Source1 memory object.
     /// @param dst Destination memory object.
-    /// @param idx index memory object.
     void execute(const stream &astream, memory &cond, memory &src1, 
-        memory &src2, memory &dst, memory &idx) const {
+        memory &src2, memory &dst) const {
         primitive::execute(astream, {{DNNL_ARG_SRC_0, cond}, {DNNL_ARG_SRC_1, src1}, 
             {DNNL_ARG_SRC_2, src2}, {DNNL_ARG_TO, dst}});
     }

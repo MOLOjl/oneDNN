@@ -38,6 +38,20 @@
 // `_P` is a mandatory suffix for macros. This is to avoid a conflict with
 // `REG_BINARY`, Windows-defined macro.
 
+#if BUILD_PRIMITIVE_ALL || BUILD_MULTINORMIAL
+#define REG_MULTINORMIAL_P(...) __VA_ARGS__
+#else
+#define REG_MULTINORMIAL_P(...) \
+    { nullptr }
+#endif
+
+#if BUILD_PRIMITIVE_ALL || BUILD_EMBEDDING
+#define REG_EMBEDDING_P(...) __VA_ARGS__
+#else
+#define REG_EMBEDDING_P(...) \
+    { nullptr }
+#endif
+
 #if BUILD_PRIMITIVE_ALL || BUILD_WHERE
 #define REG_WHERE_P(...) __VA_ARGS__
 #else

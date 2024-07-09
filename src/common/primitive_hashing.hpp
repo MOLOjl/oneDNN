@@ -99,6 +99,8 @@ size_t get_desc_hash(const transpose_desc_t &desc);
 size_t get_desc_hash(const mask_desc_t &desc);
 size_t get_desc_hash(const gather_desc_t &desc);
 size_t get_desc_hash(const where_desc_t &desc);
+size_t get_desc_hash(const multinormial_desc_t &desc);
+size_t get_desc_hash(const embedding_desc_t &desc);
 size_t get_desc_hash(const zero_pad_desc_t &desc);
 
 template <typename T>
@@ -193,6 +195,8 @@ struct hash<dnnl::impl::primitive_hashing::key_t> {
             CASE(mask)
             CASE(gather)
             CASE(where)
+            CASE(multinormial)
+            CASE(embedding)
             default: assert(!"unknown primitive_kind");
         }
             // clang-format on

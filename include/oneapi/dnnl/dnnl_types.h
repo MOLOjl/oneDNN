@@ -2025,7 +2025,11 @@ typedef enum {
     dnnl_gather,
     /// A where primitive.
     dnnl_where,
-
+    /// A multinormial primitive.
+    dnnl_multinormial,
+    /// A embdedding primitive.
+    dnnl_embedding,
+    
     /// Parameter to allow internal only primitives without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.
     dnnl_primitive_kind_max = 0x7fff,

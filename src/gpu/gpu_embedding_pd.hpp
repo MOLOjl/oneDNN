@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2021-2024 Intel Corporation
+* Copyright 2019-2020 Intel Corporation
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,31 +14,22 @@
 * limitations under the License.
 *******************************************************************************/
 
-#include "gpu/gpu_impl_list.hpp"
+#ifndef GPU_GPU_EMBEDDING_PD_HPP
+#define GPU_GPU_EMBEDDING_PD_HPP
 
-#if DNNL_GPU_VENDOR == DNNL_VENDOR_AMD
-#include "gpu/amd/hip_mask.hpp"
-#endif
+#include "common/embedding_pd.hpp"
 
 namespace dnnl {
 namespace impl {
 namespace gpu {
 
-namespace {
-
-// clang-format off
-constexpr impl_list_item_t impl_list[] = REG_MASK_P({
-        GPU_INSTANCE_AMD(amd::hip_mask_t)
-        nullptr,
-});
-// clang-format on
-} // namespace
-
-const impl_list_item_t *get_mask_impl_list(const mask_desc_t *desc) {
-    UNUSED(desc);
-    return impl_list;
-}
-
+struct gpu_embedding_pd_t : public embedding_pd_t {
+    using embedding_pd_t::embedding_pd_t;
+};
 } // namespace gpu
 } // namespace impl
 } // namespace dnnl
+
+#endif
+
+// vim: et ts=4 sw=4 cindent cino^=l0,\:0,N-s

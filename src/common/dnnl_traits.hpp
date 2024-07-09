@@ -179,6 +179,8 @@ PKIND_TRAITS_INST(transpose);
 PKIND_TRAITS_INST(mask);
 PKIND_TRAITS_INST(gather);
 PKIND_TRAITS_INST(where);
+PKIND_TRAITS_INST(multinormial);
+PKIND_TRAITS_INST(embedding);
 #undef PKIND_TRAITS_INST
 
 } // namespace impl

@@ -51,7 +51,8 @@ public:
         if (!handle) return status::success;
 
         auto *buf_u8_ptr = static_cast<xpu::sycl::buffer_u8_t *>(handle);
-        buffer_.reset(new xpu::sycl::buffer_u8_t(*buf_u8_ptr));
+        buffer_.reset(buf_u8_ptr);
+        // buffer_.reset(new xpu::sycl::buffer_u8_t(*buf_u8_ptr));
         return status::success;
     }
 

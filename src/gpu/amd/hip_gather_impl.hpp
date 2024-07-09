@@ -15,8 +15,8 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef GPU_AMD_HIP_MASK_IMPL_HPP
-#define GPU_AMD_HIP_MASK_IMPL_HPP
+#ifndef GPU_AMD_HIP_GATHER_IMPL_HPP
+#define GPU_AMD_HIP_GATHER_IMPL_HPP
 #include "gpu/amd/sycl_hip_utils.hpp"
 #include "gpu/amd/custom/hip_customs.h"
 
@@ -27,7 +27,6 @@ namespace amd {
 
 struct hip_gather_impl_t {
     status_t init(const gather_pd_t *pd) {
-        printf("---\n");
         this->src_dtype = pd->src_md()->data_type;
         this->gather_dim = pd->gather_dim();
         this->num_dims = pd->src_md()->ndims;
