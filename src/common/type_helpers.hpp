@@ -319,7 +319,8 @@ inline data_type_t default_accum_data_type(data_type_t src_dt,
     if (everyone_is(f64, src_dt, wei_dt)) return f64;
 
     if (one_of(prop_kind, forward_training, forward_inference)) {
-        if ((src_dt == u8 || src_dt == s8) && wei_dt == s8) return s32;
+        if (one_of(src_dt, u8, s8) && one_of(wei_dt, u8, s8, s4, u4))
+            return s32;
         if (one_of(f16, src_dt, wei_dt)) return f32;
         // weights decompression
         if (one_of(src_dt, bf16, f32) && one_of(wei_dt, u8, s8, s4, u4))
@@ -807,6 +808,52 @@ inline bool operator==(const transpose_desc_t &lhs, const transpose_desc_t &rhs)
     return ret;
 }
 
+inline bool operator==(const mask_desc_t &lhs, const mask_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(mask_desc)
+            && COMPARE_DESC_MEMBERS(value_f)
+            && COMPARE_DESC_MEMBERS(value_i);
+    return ret;
+}
+
+inline bool operator==(const gather_desc_t &lhs, const gather_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(idx_desc)
+            && COMPARE_DESC_MEMBERS(gather_dim);
+    return ret;
+}
+
+inline bool operator==(const where_desc_t &lhs, const where_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(cond_desc)
+            && COMPARE_DESC_MEMBERS(src1_desc)
+            && COMPARE_DESC_MEMBERS(src2_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc);
+    return ret;
+}
+
+inline bool operator==(const multinormial_desc_t &lhs, const multinormial_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(weights_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(n_sample)
+            && COMPARE_DESC_MEMBERS(seed)
+            && COMPARE_DESC_MEMBERS(replacement);
+    return ret;
+}
+
+inline bool operator==(const embedding_desc_t &lhs, const embedding_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dict_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc);
+    return ret;
+}
+
 inline bool operator==(const zero_pad_desc_t &lhs, const zero_pad_desc_t &rhs) {
     bool ret = COMPARE_DESC_MEMBERS(primitive_kind);
     return ret;
@@ -1140,6 +1187,11 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         CASE_OP_DESC(shuffle);
         CASE_OP_DESC(softmax);
         CASE_OP_DESC(transpose);
+        CASE_OP_DESC(mask);
+        CASE_OP_DESC(gather);
+        CASE_OP_DESC(where);
+        CASE_OP_DESC(multinormial);
+        CASE_OP_DESC(embedding);
 
         // Internal descs
         CASE_OP_DESC(zero_pad);

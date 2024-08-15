@@ -15,12 +15,13 @@
 *******************************************************************************/
 
 #include "xpu/sycl/buffer_memory_storage.hpp"
-#include "sycl/sycl_engine_base.hpp"
 
 #include "common/memory.hpp"
 #include "common/memory_map_manager.hpp"
+#include "common/stream.hpp"
 #include "common/utils.hpp"
-#include "sycl/sycl_stream.hpp"
+
+#include "xpu/sycl/engine_impl.hpp"
 
 namespace dnnl {
 namespace impl {
@@ -34,9 +35,9 @@ memory_arg_t<mode> get_memory_arg(const buffer_memory_storage_t *storage,
     void *handle = nullptr;
     storage->get_data_handle(&handle);
     if (!handle) {
-        auto *sycl_stream
-                = utils::downcast<impl::sycl::sycl_stream_t *>(stream);
-        return {sycl_stream->get_dummy_accessor<mode>(cgh)};
+        auto *sycl_stream_impl
+                = utils::downcast<xpu::sycl::stream_impl_t *>(stream->impl());
+        return {sycl_stream_impl->get_dummy_accessor<mode>(cgh)};
     }
     return {storage->buffer().get_access<mode>(cgh)};
 }
@@ -92,12 +93,15 @@ std::unique_ptr<memory_storage_t> buffer_memory_storage_t::get_sub_storage(
     if (engine()->kind() == engine_kind::cpu) {
         storage->buffer_ = buffer_;
     } else {
-        gpu_assert(IMPLICATION(
-                xpu::sycl::is_intel_device(
-                        utils::downcast<const impl::sycl::sycl_engine_base_t *>(
-                                engine())
-                                ->device()),
-                offset % gpu::intel::ocl::OCL_BUFFER_ALIGNMENT == 0));
+        const auto *sycl_engine_impl
+                = utils::downcast<const xpu::sycl::engine_impl_t *>(
+                        engine()->impl());
+        MAYBE_UNUSED(sycl_engine_impl);
+        // TODO: Generalize gpu_assert to make it available for use in the xpu
+        // space.
+        assert(IMPLICATION(
+                xpu::sycl::is_intel_device(sycl_engine_impl->device()),
+                offset % sycl_engine_impl->get_buffer_alignment() == 0));
         xpu::sycl::buffer_u8_t *sub_buffer = buffer_
                 ? new xpu::sycl::buffer_u8_t(
                         parent_buffer(), base_offset_ + offset, size)
@@ -123,9 +127,9 @@ std::unique_ptr<memory_storage_t> buffer_memory_storage_t::clone() const {
 }
 
 status_t buffer_memory_storage_t::init_allocate(size_t size) {
-    const auto &device
-            = utils::downcast<impl::sycl::sycl_engine_base_t *>(engine())
-                      ->device();
+    const auto &device = utils::downcast<const xpu::sycl::engine_impl_t *>(
+            engine()->impl())
+                                 ->device();
     if (size > device.get_info<::sycl::info::device::max_mem_alloc_size>()) {
         return status::out_of_memory;
     }

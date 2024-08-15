@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2020-2023 Intel Corporation
+* Copyright 2020-2024 Intel Corporation
 * Copyright 2020 Codeplay Software Limited
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,8 @@
 #include <assert.h>
 
 #include "common/matmul_pd.hpp"
-#include "common/primitive.hpp"
+
+#include "gpu/gpu_primitive.hpp"
 
 #include "gpu/amd/miopen_matmul_executor.hpp"
 #include "gpu/amd/miopen_matmul_impl.hpp"
@@ -32,14 +33,14 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-struct miopen_matmul_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct miopen_matmul_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
     struct pd_t : public matmul_pd_t {
         using matmul_pd_t::matmul_pd_t;
 
         DECLARE_COMMON_PD_T("hip:miopen:any", miopen_matmul_t);
 
-        status_t init(engine_t *) {
+        status_t init(impl::engine_t *) {
             using namespace data_type;
             using smask_t = primitive_attr_t::skip_mask_t;
 
@@ -125,7 +126,7 @@ struct miopen_matmul_t : public primitive_t {
         }
     };
 
-    status_t init(engine_t *engine) override {
+    status_t init(impl::engine_t *engine) override {
         matmul_impl_.reset(new miopen_matmul_impl_t());
         const auto status
                 = matmul_impl_->init((matmul_pd_t *)primitive_t::pd().get());

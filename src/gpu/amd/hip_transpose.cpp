@@ -17,9 +17,9 @@
 
 #include "gpu/amd/hip_transpose.hpp"
 #include "gpu/amd/sycl_hip_scoped_context.hpp"
-#include "gpu/amd/sycl_hip_stream.hpp"
-#include "sycl/sycl_buffer_memory_storage.hpp"
-#include "sycl/sycl_memory_storage_helper.hpp"
+#include "gpu/amd/stream.hpp"
+#include "xpu/sycl/buffer_memory_storage.hpp"
+#include "xpu/sycl/memory_storage_helper.hpp"
 
 namespace dnnl {
 namespace impl {
@@ -29,15 +29,15 @@ namespace amd {
 status_t hip_transpose_t::execute(const exec_ctx_t &ctx) const {
     if (memory_desc_wrapper(pd()->src_md()).has_zero_dim())
         return status::success;
-    amd::sycl_hip_stream_t *hip_stream
-            = utils::downcast<amd::sycl_hip_stream_t *>(ctx.stream());
+    amd::stream_t *hip_stream
+            = utils::downcast<amd::stream_t *>(ctx.stream());
 
     return hip_stream->interop_task([&](::sycl::handler &cgh) {
         auto arg_src = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC);
         auto arg_dst = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DST);
 
         compat::host_task(cgh, [=](const compat::interop_handle &ih) {
-            auto &sycl_engine = *utils::downcast<sycl_hip_engine_t *>(
+            auto &sycl_engine = *utils::downcast<amd::engine_t *>(
                     hip_stream->engine());
             auto sc = hip_sycl_scoped_context_handler_t(sycl_engine);
 

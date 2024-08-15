@@ -197,6 +197,9 @@
 #define POST_OP_DATA_T double
 #define TO_DATA_T(v) (double)(v)
 #define TO_DEF_ACC_DATA_T(v) (double)(v)
+#define TO_DEF_ACC_DATA2_T convert_double2
+#define TO_DEF_ACC_DATA4_T convert_double4
+#define TO_DEF_ACC_DATA8_T convert_double8
 #define DATA_TO_REF convert_float
 #define CONVERT_DATA_T convert_double
 #define CONVERT_DATA2_T convert_double2
@@ -699,6 +702,7 @@
 #define AS_VECT_DATA_T AS_DATA_T
 #define VECT_BLOCK_READ BLOCK_READ
 #define VECT_BLOCK_WRITE BLOCK_WRITE
+#define VECT_DST_BLOCK_WRITE BLOCK_WRITE_DST
 #define VECT_UINT_READ intel_sub_group_block_read
 #define VECT_UINT_WRITE intel_sub_group_block_write
 #define VECT_UCHAR_READ intel_sub_group_block_read_uc
@@ -707,6 +711,7 @@
 #define AS_VECT_BLOCK_DATA_T AS_BLOCK_DATA_T
 #define CONVERT_VECT_FLOAT_T CONVERT_FLOAT_T
 #define CONVERT_VECTOR_DATA_T CONVERT_DATA_T
+#define CONVERT_VECTOR_DST_DATA_T CONVERT_DST_DATA_T
 #define CONVERT_VECT_CHAR_T convert_char
 #define CONVERT_VECT_INT_T convert_int
 #define VECT_INT_T int
@@ -725,6 +730,7 @@
 #define AS_VECT_DATA_T AS_DATA2_T
 #define VECT_BLOCK_READ BLOCK_READ2
 #define VECT_BLOCK_WRITE BLOCK_WRITE2
+#define VECT_DST_BLOCK_WRITE BLOCK_WRITE_DST2
 #define VECT_UINT_READ intel_sub_group_block_read2
 #define VECT_UINT_WRITE intel_sub_group_block_write2
 #define VECT_UCHAR_READ intel_sub_group_block_read_uc2
@@ -733,6 +739,7 @@
 #define AS_VECT_BLOCK_DATA_T AS_BLOCK_DATA2_T
 #define CONVERT_VECT_FLOAT_T CONVERT_FLOAT2_T
 #define CONVERT_VECTOR_DATA_T CONVERT_DATA2_T
+#define CONVERT_VECTOR_DST_DATA_T CONVERT_DST_DATA2_T
 #define CONVERT_VECT_CHAR_T convert_char2
 #define CONVERT_VECT_INT_T convert_int2
 #define VECT_INT_T int2
@@ -751,6 +758,7 @@
 #define AS_VECT_DATA_T AS_DATA4_T
 #define VECT_BLOCK_READ BLOCK_READ4
 #define VECT_BLOCK_WRITE BLOCK_WRITE4
+#define VECT_DST_BLOCK_WRITE BLOCK_WRITE_DST4
 #define VECT_UINT_READ intel_sub_group_block_read4
 #define VECT_UINT_WRITE intel_sub_group_block_write4
 #define VECT_UCHAR_READ intel_sub_group_block_read_uc4
@@ -759,6 +767,7 @@
 #define AS_VECT_BLOCK_DATA_T AS_BLOCK_DATA4_T
 #define CONVERT_VECT_FLOAT_T CONVERT_FLOAT4_T
 #define CONVERT_VECTOR_DATA_T CONVERT_DATA4_T
+#define CONVERT_VECTOR_DST_DATA_T CONVERT_DST_DATA4_T
 #define CONVERT_VECT_CHAR_T convert_char4
 #define CONVERT_VECT_INT_T convert_int4
 #define VECT_INT_T int4
@@ -777,6 +786,7 @@
 #define AS_VECT_DATA_T AS_DATA8_T
 #define VECT_BLOCK_READ BLOCK_READ8
 #define VECT_BLOCK_WRITE BLOCK_WRITE8
+#define VECT_DST_BLOCK_WRITE BLOCK_WRITE_DST8
 #define VECT_UINT_READ intel_sub_group_block_read8
 #define VECT_UINT_WRITE intel_sub_group_block_write8
 #define VECT_UCHAR_READ intel_sub_group_block_read_uc8
@@ -785,6 +795,7 @@
 #define AS_VECT_BLOCK_DATA_T AS_BLOCK_DATA8_T
 #define CONVERT_VECT_FLOAT_T CONVERT_FLOAT8_T
 #define CONVERT_VECTOR_DATA_T CONVERT_DATA8_T
+#define CONVERT_VECTOR_DST_DATA_T CONVERT_DST_DATA8_T
 #define CONVERT_VECT_CHAR_T convert_char8
 #define CONVERT_VECT_INT_T convert_int8
 #define VECT_INT_T int8
@@ -909,6 +920,18 @@
 #elif WEI_DT_HF8
 #define WEI_TO_REF(x) convert_float(cvt_f8_e4m3_to_hf(x))
 #define REF_TO_WEI(x) cvt_hf_to_f8_e4m3(convert_half(x))
+#elif WEI_DT_S8
+#define WEI_TO_REF(x) convert_int_sat_rte(x)
+#define REF_TO_WEI(x) convert_char_sat_rte(x)
+#elif WEI_DT_U8
+#define WEI_TO_REF(x) convert_int_sat_rte(x)
+#define REF_TO_WEI(x) convert_uchar_sat_rte(x)
+#elif WEI_DT_S4
+#define GET_HALF_BYTE(x, y) get_half_byte(x, y)
+#define WEI_TO_REF(x) cvt_s4_to_s32(x)
+#elif WEI_DT_U4
+#define GET_HALF_BYTE(x, y) get_half_byte(x, y)
+#define WEI_TO_REF(x) convert_int_sat_rte(x)
 #else
 #define WEI_TO_REF(x) (x)
 #define REF_TO_WEI(x) (x)
@@ -1087,6 +1110,12 @@
 #define CONVERT_DST_DATA4_T CONCAT2(convert_, DST_DATA4_T)
 #define CONVERT_DST_DATA8_T CONCAT2(convert_, DST_DATA8_T)
 #define CONVERT_DST_DATA16_T CONCAT2(convert_, DST_DATA16_T)
+#elif DST_DT_BF16
+#define CONVERT_DST_DATA_T TO_DST
+#define CONVERT_DST_DATA2_T TO_DST2
+#define CONVERT_DST_DATA4_T TO_DST4
+#define CONVERT_DST_DATA8_T TO_DST8
+#define CONVERT_DST_DATA16_T TO_DST16
 #else
 #define CONVERT_DST_DATA_T CONCAT3(convert_, DST_DATA_T, _sat_rte)
 #define CONVERT_DST_DATA2_T CONCAT3(convert_, DST_DATA2_T, _sat_rte)
@@ -1395,12 +1424,16 @@
 #ifdef ACC_DATA_T
 #if ACC_DT_F16
 #define TO_ACC(x) convert_half(x)
+#define ACC_TO_REF(x) convert_float(x)
 #elif ACC_DT_F32
 #define TO_ACC(x) convert_float(x)
+#define ACC_TO_REF(x) convert_float(x)
 #elif ACC_DT_F64
 #define TO_ACC(x) convert_double(x)
+#define ACC_TO_REF(x) convert_double(x)
 #elif ACC_DT_S32
 #define TO_ACC(x) convert_int(x)
+#define ACC_TO_REF(x) convert_float(x)
 #else
 #error "Unexpected accumulation data type"
 #endif
@@ -1424,6 +1457,40 @@
 #define SUM_TO_REF(x) convert_float(cvt_f8_e4m3_to_hf(x))
 #else
 #define SUM_TO_REF
+#endif
+#endif
+
+#ifdef WEI_SCALES_DATA_T
+#if WEI_SCALES_DT_F16
+#define WEI_SCALES_TO_REF(x) convert_float(x)
+#elif WEI_SCALES_DT_BF16
+#define WEI_SCALES_TO_REF(x) cvt_bf16_to_f32(x)
+#else
+#define WEI_SCALES_TO_REF(x) (x)
+#endif
+#endif
+
+#ifdef SRC_SCALES_DATA_T
+#if SRC_SCALES_DT_F16
+#define SRC_SCALES_TO_REF(x) convert_float(x)
+#elif SRC_SCALES_DT_BF16
+#define SRC_SCALES_TO_REF(x) cvt_bf16_to_f32(x)
+#else
+#define SRC_SCALES_TO_REF(x) (x)
+#endif
+#endif
+
+#ifdef WEI_ZP_DATA_T
+#if WEI_ZP_DT_S8
+#define WEI_ZP_TO_REF(zp, off) convert_int_sat_rte(zp[off])
+#elif WEI_ZP_DT_U8
+#define WEI_ZP_TO_REF(zp, off) convert_int_sat_rte(zp[off])
+#elif WEI_ZP_DT_S4
+#define WEI_ZP_TO_REF(zp, off) cvt_s4_to_s32(GET_HALF_BYTE(zp, off))
+#elif WEI_ZP_DT_U4
+#define WEI_ZP_TO_REF(zp, off) convert_int_sat_rte(GET_HALF_BYTE(zp, off))
+#else
+#define WEI_ZP_TO_REF(zp, off) (zp[off])
 #endif
 #endif
 

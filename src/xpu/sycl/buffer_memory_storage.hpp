@@ -22,9 +22,9 @@
 #include "common/c_types_map.hpp"
 #include "common/memory_storage.hpp"
 #include "common/utils.hpp"
-#include "gpu/intel/sycl/utils.hpp"
 #include "xpu/sycl/c_types_map.hpp"
 #include "xpu/sycl/memory_storage_base.hpp"
+#include "xpu/sycl/utils.hpp"
 
 namespace dnnl {
 namespace impl {
@@ -51,7 +51,8 @@ public:
         if (!handle) return status::success;
 
         auto *buf_u8_ptr = static_cast<xpu::sycl::buffer_u8_t *>(handle);
-        buffer_.reset(new xpu::sycl::buffer_u8_t(*buf_u8_ptr));
+        buffer_.reset(buf_u8_ptr);
+        // buffer_.reset(new xpu::sycl::buffer_u8_t(*buf_u8_ptr));
         return status::success;
     }
 

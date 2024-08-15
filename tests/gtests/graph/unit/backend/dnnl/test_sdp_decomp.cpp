@@ -441,7 +441,6 @@ TEST(test_sdp_decomp_execute, Int8Bf16SdpDecomp_CPU) {
 // Test multiple thread execute
 TEST(test_sdp_decomp_execute, MultithreaSdpDecomp_CPU) {
     graph::engine_t *eng = get_engine();
-    graph::stream_t *strm = get_stream();
 
     SKIP_IF(eng->kind() == graph::engine_kind::gpu, "skip on gpu");
 
@@ -514,6 +513,8 @@ TEST(test_sdp_decomp_execute, MultithreaSdpDecomp_CPU) {
         }
 
         auto func = [&]() {
+            graph::stream_t *strm;
+            dnnl_stream_create(&strm, eng, dnnl_stream_in_order);
             std::vector<test_tensor> outputs_ts;
             for (auto &lt : partition_outputs) {
                 outputs_ts.emplace_back(lt, eng);
@@ -524,6 +525,7 @@ TEST(test_sdp_decomp_execute, MultithreaSdpDecomp_CPU) {
                                   test_tensor::to_graph_tensor(outputs_ts)),
                         graph::status::success);
             strm->wait();
+            dnnl_stream_destroy(strm);
         };
 
         std::thread t1(func);
@@ -1466,7 +1468,6 @@ TEST(test_sdp_decomp_execute, Int8Bf16DistilBertSdpCorr_CPU) {
 TEST(test_sdp_decomp_execute, MultithreaSdpDecompCorr_CPU) {
     graph::engine_t *eng = get_engine();
     graph::stream_t *strm = get_stream();
-
     SKIP_IF(eng->kind() == graph::engine_kind::gpu, "skip on gpu");
 
     static auto isa = dnnl_get_effective_cpu_isa();
@@ -1555,18 +1556,23 @@ TEST(test_sdp_decomp_execute, MultithreaSdpDecompCorr_CPU) {
         strm->wait();
 
         auto func = [&]() {
+            graph::stream_t *strm_eng;
+            dnnl_stream_create(&strm_eng, eng, dnnl_stream_in_order);
             std::vector<test_tensor> outputs_ts;
             for (auto &lt : partition_outputs) {
                 outputs_ts.emplace_back(lt, eng);
             }
-            for (int i = 0; i < 10; i++)
-                ASSERT_EQ(cp.execute(strm,
+            for (int i = 0; i < 10; i++) {
+                ASSERT_EQ(cp.execute(strm_eng,
                                   test_tensor::to_graph_tensor(inputs_ts),
                                   test_tensor::to_graph_tensor(outputs_ts)),
                         graph::status::success);
+                strm_eng->wait();
+            }
             ASSERT_TRUE(allclose<int8_t>(outputs1_ts[0], outputs_ts[0],
                     /*rtol*/ 0.01f,
                     /*atol*/ 1e-6f));
+            dnnl_stream_destroy(strm_eng);
         };
 
         std::thread t1(func);

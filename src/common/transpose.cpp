@@ -32,7 +32,7 @@ namespace dnnl {
 namespace impl {
 
 #define VCHECK_TRANSPOSE(cond, msg, ...) \
-    VCONDCHECK(primitive, create, check, transpose, (cond), \
+    VCONDCHECK(primitive, create, check, dnnl_transpose, (cond), \
             status::invalid_arguments, msg, ##__VA_ARGS__);
 
 status_t transpose_desc_init(transpose_desc_t *transpose_desc,
@@ -58,7 +58,7 @@ status_t transpose_desc_init(transpose_desc_t *transpose_desc,
 } // namespace dnnl
 
 status_t dnnl_transpose_primitive_desc_create(
-        primitive_desc_iface_t **primitive_desc_iface, engine_t *engine, 
+        primitive_desc_iface_t **primitive_desc_iface, dnnl_engine_t engine, 
         const memory_desc_t *src_md, const memory_desc_t *dst_md, 
         dnnl_dim_t dim1, dnnl_dim_t dim2) {
     auto transpose_desc = transpose_desc_t();

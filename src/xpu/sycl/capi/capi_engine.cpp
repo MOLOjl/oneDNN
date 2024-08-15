@@ -19,7 +19,8 @@
 #include "common/c_types_map.hpp"
 #include "common/engine.hpp"
 #include "common/utils.hpp"
-#include "sycl/sycl_engine.hpp"
+
+#include "xpu/sycl/engine_factory.hpp"
 #include "xpu/sycl/utils.hpp"
 
 using dnnl::impl::engine_t;
@@ -48,7 +49,7 @@ status_t dnnl_sycl_interop_engine_create(
             VERBOSE_BAD_ENGINE_KIND);
 #endif
 
-    auto ef = dnnl::impl::sycl::get_engine_factory(kind);
+    auto ef = dnnl::impl::xpu::sycl::get_engine_factory(kind);
     VERROR_ENGINE(ef, status::invalid_arguments, VERBOSE_BAD_ENGINE_KIND);
 
     size_t index;
@@ -64,9 +65,10 @@ status_t dnnl_sycl_interop_engine_get_context(engine_t *engine, void **ctx) {
 
     if (!args_ok) return status::invalid_arguments;
 
-    auto *sycl_engine
-            = utils::downcast<dnnl::impl::sycl::sycl_engine_base_t *>(engine);
-    auto &sycl_ctx = const_cast<::sycl::context &>(sycl_engine->context());
+    const auto *sycl_engine_impl
+            = utils::downcast<const dnnl::impl::xpu::sycl::engine_impl_t *>(
+                    engine->impl());
+    auto &sycl_ctx = const_cast<::sycl::context &>(sycl_engine_impl->context());
     *ctx = static_cast<void *>(&sycl_ctx);
     return status::success;
 }
@@ -78,9 +80,10 @@ status_t dnnl_sycl_interop_engine_get_device(engine_t *engine, void **dev) {
 
     if (!args_ok) return status::invalid_arguments;
 
-    auto *sycl_engine
-            = utils::downcast<dnnl::impl::sycl::sycl_engine_base_t *>(engine);
-    auto &sycl_dev = const_cast<::sycl::device &>(sycl_engine->device());
+    const auto *sycl_engine_impl
+            = utils::downcast<const dnnl::impl::xpu::sycl::engine_impl_t *>(
+                    engine->impl());
+    auto &sycl_dev = const_cast<::sycl::device &>(sycl_engine_impl->device());
     *dev = static_cast<void *>(&sycl_dev);
     return status::success;
 }

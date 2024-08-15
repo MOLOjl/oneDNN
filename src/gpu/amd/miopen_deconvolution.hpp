@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2020-2023 Intel Corporation
+* Copyright 2020-2024 Intel Corporation
 * Copyright 2020 Codeplay Software Limited
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +25,7 @@
 #include "common/primitive_desc_iterator.hpp"
 #include "gpu/amd/miopen_convolution.hpp"
 #include "gpu/amd/miopen_deconvolution_impl.hpp"
+#include "gpu/gpu_primitive.hpp"
 
 namespace dnnl {
 namespace impl {
@@ -108,8 +109,8 @@ static status_t conv_descr_create(
 }
 } // namespace
 
-struct miopen_deconvolution_fwd_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct miopen_deconvolution_fwd_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
     struct pd_t : public deconvolution_fwd_pd_t {
         pd_t(const deconvolution_desc_t *adesc, const primitive_attr_t *attr,
                 const deconvolution_fwd_pd_t *hint_fwd_pd)
@@ -124,7 +125,7 @@ struct miopen_deconvolution_fwd_t : public primitive_t {
 
         DECLARE_COMMON_PD_T("hip:miopen:any", miopen_deconvolution_fwd_t);
 
-        status_t init_convolution(engine_t *engine) {
+        status_t init_convolution(impl::engine_t *engine) {
             using namespace format_tag;
             using namespace data_type;
 
@@ -158,7 +159,7 @@ struct miopen_deconvolution_fwd_t : public primitive_t {
             return status::unimplemented;
         }
 
-        status_t init(engine_t *engine) {
+        status_t init(impl::engine_t *engine) {
             using namespace format_tag;
             bool ok = true && is_fwd();
             ok = ok
@@ -213,7 +214,7 @@ struct miopen_deconvolution_fwd_t : public primitive_t {
 
     ~miopen_deconvolution_fwd_t() {}
 
-    virtual status_t init(engine_t *engine) {
+    virtual status_t init(impl::engine_t *engine) {
         return pd()->conv_pd_->create_primitive(conv_p_, engine);
     }
 
@@ -237,11 +238,11 @@ struct miopen_deconvolution_fwd_t : public primitive_t {
 
 private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
-    std::shared_ptr<primitive_t> conv_p_;
+    std::shared_ptr<impl::primitive_t> conv_p_;
 };
 
-struct miopen_deconvolution_bwd_data_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct miopen_deconvolution_bwd_data_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
     struct pd_t : public deconvolution_bwd_data_pd_t {
         pd_t(const deconvolution_desc_t *adesc, const primitive_attr_t *attr,
                 const deconvolution_fwd_pd_t *hint_fwd_pd)
@@ -256,7 +257,7 @@ struct miopen_deconvolution_bwd_data_t : public primitive_t {
 
         DECLARE_COMMON_PD_T("hip:miopen:any", miopen_deconvolution_bwd_data_t);
 
-        status_t init_convolution(engine_t *engine) {
+        status_t init_convolution(impl::engine_t *engine) {
             convolution_desc_t cd;
             CHECK(conv_descr_create(desc(), &cd));
             primitive_attr_t conv_attr = *attr();
@@ -269,7 +270,7 @@ struct miopen_deconvolution_bwd_data_t : public primitive_t {
             return status::unimplemented;
         }
 
-        status_t init(engine_t *engine) {
+        status_t init(impl::engine_t *engine) {
 
             bool ok = true && desc()->prop_kind == prop_kind::backward_data
                     && (utils::everyone_is(data_type::f32,
@@ -313,7 +314,7 @@ struct miopen_deconvolution_bwd_data_t : public primitive_t {
 
     ~miopen_deconvolution_bwd_data_t() {}
 
-    virtual status_t init(engine_t *engine) {
+    virtual status_t init(impl::engine_t *engine) {
         return pd()->conv_pd_->create_primitive(conv_p_, engine);
     }
 
@@ -337,11 +338,11 @@ struct miopen_deconvolution_bwd_data_t : public primitive_t {
 
 private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
-    std::shared_ptr<primitive_t> conv_p_;
+    std::shared_ptr<impl::primitive_t> conv_p_;
 };
 
-struct miopen_deconvolution_bwd_weights_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct miopen_deconvolution_bwd_weights_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
     struct pd_t : public deconvolution_bwd_weights_pd_t {
         pd_t(const deconvolution_desc_t *adesc, const primitive_attr_t *attr,
                 const deconvolution_fwd_pd_t *hint_fwd_pd)
@@ -357,7 +358,7 @@ struct miopen_deconvolution_bwd_weights_t : public primitive_t {
         DECLARE_COMMON_PD_T(
                 "hip:miopen:any", miopen_deconvolution_bwd_weights_t);
 
-        status_t init_convolution(engine_t *engine) {
+        status_t init_convolution(impl::engine_t *engine) {
             convolution_desc_t cd;
             CHECK(conv_descr_create(desc(), &cd));
             primitive_attr_t conv_attr = *attr();
@@ -371,7 +372,7 @@ struct miopen_deconvolution_bwd_weights_t : public primitive_t {
             return status::unimplemented;
         }
 
-        status_t init(engine_t *engine) {
+        status_t init(impl::engine_t *engine) {
             using namespace format_tag;
             bool ok = true && desc()->prop_kind == prop_kind::backward_weights
                     && (utils::everyone_is(data_type::f32,
@@ -418,7 +419,7 @@ struct miopen_deconvolution_bwd_weights_t : public primitive_t {
 
     ~miopen_deconvolution_bwd_weights_t() {}
 
-    virtual status_t init(engine_t *engine) {
+    virtual status_t init(impl::engine_t *engine) {
         if (pd()->with_bias()) {
             if (pd()->ndims() > MIOPEN_DIM_MAX)
                 return status::invalid_arguments;
@@ -454,7 +455,7 @@ struct miopen_deconvolution_bwd_weights_t : public primitive_t {
 
 private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
-    std::shared_ptr<primitive_t> conv_p_;
+    std::shared_ptr<impl::primitive_t> conv_p_;
     std::shared_ptr<miopen_deconvolution_bwd_bias_impl_t> impl_;
 };
 

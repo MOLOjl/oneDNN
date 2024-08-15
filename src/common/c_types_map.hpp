@@ -1917,7 +1917,12 @@ const runtime_kind_t sycl = dnnl_runtime_sycl;
 using primitive_kind_t = dnnl_primitive_kind_t;
 namespace primitive_kind {
 const primitive_kind_t undefined = dnnl_undefined_primitive;
+const primitive_kind_t multinormial = dnnl_multinormial;
+const primitive_kind_t embedding = dnnl_embedding;
+const primitive_kind_t where = dnnl_where;
+const primitive_kind_t gather = dnnl_gather;
 const primitive_kind_t transpose = dnnl_transpose;
+const primitive_kind_t mask = dnnl_mask;
 const primitive_kind_t reorder = dnnl_reorder;
 const primitive_kind_t concat = dnnl_concat;
 const primitive_kind_t sum = dnnl_sum;

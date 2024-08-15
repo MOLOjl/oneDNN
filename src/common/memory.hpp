@@ -55,6 +55,9 @@ struct dnnl_memory : public dnnl::impl::c_compatible {
     dnnl_memory(dnnl::impl::engine_t *engine,
             const dnnl::impl::memory_desc_t *md,
             std::unique_ptr<dnnl::impl::memory_storage_t> &&memory_storage);
+    dnnl_memory(dnnl::impl::engine_t *engine,
+            const dnnl::impl::memory_desc_t *md,
+            void* raw_data);
     virtual ~dnnl_memory() = default;
 
     /** returns memory's engine */
@@ -63,9 +66,15 @@ struct dnnl_memory : public dnnl::impl::c_compatible {
     const dnnl::impl::memory_desc_t *md() const { return &md_; }
     /** returns the underlying memory storage */
     dnnl::impl::memory_storage_t *memory_storage(int index = 0) const {
+        if(tag_raw_ == 1) return nullptr;
         if (index >= (int)memory_storages_.size()) return nullptr;
         return memory_storages_[index].get();
     }
+    
+    /** returns memory's raw_data */
+    void* raw_data() const { return raw_data_; }
+    /** returns if the memory is a wrapper of raw_data */
+    int tag_raw() const { return tag_raw_; }
 
     /** returns the underlying memory storage */
     dnnl::impl::memory_storage_t *memory_storage_clean(
@@ -94,6 +103,8 @@ struct dnnl_memory : public dnnl::impl::c_compatible {
 protected:
     dnnl::impl::engine_t *engine_;
     const dnnl::impl::memory_desc_t md_;
+    int tag_raw_ = 0;
+    void* raw_data_;
 
 private:
     dnnl_memory() = delete;

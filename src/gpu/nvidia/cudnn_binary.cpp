@@ -16,8 +16,8 @@
 *******************************************************************************/
 
 #include "gpu/nvidia/cudnn_binary.hpp"
+#include "gpu/nvidia/stream.hpp"
 #include "gpu/nvidia/sycl_cuda_scoped_context.hpp"
-#include "gpu/nvidia/sycl_cuda_stream.hpp"
 #include "gpu/nvidia/sycl_cuda_stream_utils.hpp"
 #include "gpu/nvidia/sycl_cuda_utils.hpp"
 #include "xpu/sycl/buffer_memory_storage.hpp"
@@ -32,8 +32,8 @@ status_t cudnn_binary_t::execute(const exec_ctx_t &ctx) const {
     if (memory_desc_wrapper(pd()->src_md(0)).has_zero_dim())
         return status::success;
 
-    nvidia::sycl_cuda_stream_t *cuda_stream
-            = utils::downcast<nvidia::sycl_cuda_stream_t *>(ctx.stream());
+    nvidia::stream_t *cuda_stream
+            = utils::downcast<nvidia::stream_t *>(ctx.stream());
 
     if (!pd()->attr()->scales_.get(DNNL_ARG_SRC_0).defined())
         CHECK(stream_utils::copy_input_arg_to_host(ctx, cuda_stream,
@@ -45,19 +45,25 @@ status_t cudnn_binary_t::execute(const exec_ctx_t &ctx) const {
                 sizeof(float)));
 
     return cuda_stream->interop_task([&](::sycl::handler &cgh) {
+        void *aa=nullptr, *bb=nullptr, *cc=nullptr;
+        int a_raw=0, b_raw=0, c_raw=0;
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC_0, aa, a_raw);
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC_1, bb, b_raw);
+        CTX_OUT_RAW_MEMORY(DNNL_ARG_DST, cc, c_raw);
+
         auto arg_src_0 = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC_0);
         auto arg_src_1 = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC_1);
         auto arg_dst = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DST);
 
         compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
-            auto &sycl_engine = *utils::downcast<sycl_cuda_engine_t *>(
+            auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(
                     cuda_stream->engine());
             auto sc = cuda_sycl_scoped_context_handler_t(sycl_engine);
             auto handle = cuda_stream->get_cudnn_handle();
-
-            void *a = arg_src_0.get_native_pointer(ih);
-            void *b = arg_src_1.get_native_pointer(ih);
-            void *c = arg_dst.get_native_pointer(ih);
+            printf("eye12, a_raw: %d, b_raw: %d, aa:%p, bb:%p\n", a_raw, b_raw, aa, bb);
+            void *a = a_raw ? aa : arg_src_0.get_native_pointer(ih);
+            void *b = b_raw ? bb :  arg_src_1.get_native_pointer(ih);
+            void *c = c_raw ? cc :  arg_dst.get_native_pointer(ih);
 
             pd()->binary_impl_->execute(
                     handle, a, b, c, &host_scales_[0], &host_scales_[1]);

@@ -34,6 +34,18 @@ namespace impl {
 namespace xpu {
 namespace sycl {
 
+#define CTX_OUT_RAW_MEMORY(arg_enum, ptr, tag) \
+    if(ctx.output(arg_enum)->tag_raw()) { \
+        ptr = ctx.output(arg_enum)->raw_data(); \
+        tag = 1; \
+    }
+
+#define CTX_IN_RAW_MEMORY(arg_enum, ptr, tag) \
+    if(ctx.input(arg_enum)->tag_raw()) { \
+        ptr = ctx.input(arg_enum)->raw_data(); \
+        tag = 1; \
+    }
+
 #define CTX_IN_SYCL_MEMORY(arg) \
     dnnl::impl::xpu::sycl::interop_memory_arg_t<::sycl::access::mode::read>( \
             &CTX_IN_STORAGE(arg), cgh)

@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2020-2023 Intel Corporation
+* Copyright 2020-2024 Intel Corporation
 * Copyright 2020-2022 Codeplay Software Limited
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,19 +19,19 @@
 #define GPU_AMD_MIOPEN_REORDER_HPP
 
 #include "common/memory_desc_wrapper.hpp"
-#include "common/primitive.hpp"
 #include "common/reorder_pd.hpp"
+#include "gpu/amd/engine.hpp"
 #include "gpu/amd/miopen_reorder_impl.hpp"
-#include "gpu/amd/sycl_hip_engine.hpp"
 #include "gpu/amd/sycl_hip_utils.hpp"
+#include "gpu/gpu_primitive.hpp"
 
 namespace dnnl {
 namespace impl {
 namespace gpu {
 namespace amd {
 
-struct miopen_reorder_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct miopen_reorder_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
 
     struct pd_t : public reorder_pd_t {
         using reorder_pd_t::reorder_pd_t;
@@ -92,8 +92,8 @@ struct miopen_reorder_t : public primitive_t {
                     || has_zero_dims(dst_md()->dims, dst_md()->ndims);
         }
 
-        status_t init(
-                engine_t *engine, engine_t *src_engine, engine_t *dst_engine) {
+        status_t init(impl::engine_t *engine, impl::engine_t *src_engine,
+                impl::engine_t *dst_engine) {
             const auto attr_skip_mask
                     = primitive_attr_t::skip_mask_t::scales_runtime
                     | primitive_attr_t::skip_mask_t::post_ops;
@@ -112,10 +112,10 @@ struct miopen_reorder_t : public primitive_t {
         std::shared_ptr<miopen_reorder_generic_t> reorder_;
 
     private:
-        static status_t create(reorder_pd_t **reorder_pd, engine_t *engine,
-                const primitive_attr_t *attr, engine_t *src_engine,
-                const memory_desc_t *src_md, engine_t *dst_engine,
-                const memory_desc_t *dst_md) {
+        static status_t create(reorder_pd_t **reorder_pd,
+                impl::engine_t *engine, const primitive_attr_t *attr,
+                impl::engine_t *src_engine, const memory_desc_t *src_md,
+                impl::engine_t *dst_engine, const memory_desc_t *dst_md) {
             auto _pd = make_unique_pd<pd_t>(attr, src_engine->kind(), src_md,
                     dst_engine->kind(), dst_md);
             if (_pd == nullptr) return status::out_of_memory;

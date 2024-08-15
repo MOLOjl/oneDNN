@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright 2020-2022 Intel Corporation
+* Copyright 2020-2024 Intel Corporation
 * Copyright 2020 Codeplay Software Limited
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,10 +20,10 @@
 
 #include "common/binary_pd.hpp"
 #include "common/c_types_map.hpp"
-#include "common/primitive.hpp"
+#include "gpu/amd/engine.hpp"
 #include "gpu/amd/miopen_binary_impl.hpp"
-#include "gpu/amd/sycl_hip_engine.hpp"
 #include "gpu/amd/sycl_hip_utils.hpp"
+#include "gpu/gpu_primitive.hpp"
 #include <miopen/miopen.h>
 
 namespace dnnl {
@@ -31,15 +31,15 @@ namespace impl {
 namespace gpu {
 namespace amd {
 
-struct miopen_binary_t : public primitive_t {
-    using primitive_t::primitive_t;
+struct miopen_binary_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
 
     struct pd_t : public binary_pd_t {
         using binary_pd_t::binary_pd_t;
 
         DECLARE_COMMON_PD_T("hip:miopen:any", miopen_binary_t);
 
-        status_t init(engine_t *) {
+        status_t init(impl::engine_t *) {
             using namespace data_type;
 
             bool ok = (set_default_params() == status::success)

@@ -1167,6 +1167,10 @@ dnnl_status_t DNNL_API dnnl_memory_create(dnnl_memory_t *memory,
         const_dnnl_memory_desc_t memory_desc, dnnl_engine_t engine,
         void *handle);
 
+dnnl_status_t DNNL_API dnnl_memory_create_raw(dnnl_memory_t *memory,
+        const_dnnl_memory_desc_t memory_desc, dnnl_engine_t engine,
+        int place_holder, void *raw_data);
+
 #ifdef DNNL_EXPERIMENTAL_SPARSE
 /// Creates a memory object with multiple handles.
 ///
@@ -1361,6 +1365,121 @@ dnnl_status_t DNNL_API dnnl_memory_destroy(dnnl_memory_t memory);
 /// @addtogroup dnnl_api_primitives
 /// @{
 
+/// @addtogroup dnnl_api_multinormial
+/// @{
+
+/// Creates a primitive descriptor for a multinormial primitive.
+///
+/// @param multinormial_primitive_desc Output primitive descriptor.
+/// @param weights_desc Weights memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_multinormial_primitive_desc_create(
+        dnnl_primitive_desc_t *multinormial_primitive_desc,
+        dnnl_engine_t engine,
+        const_dnnl_memory_desc_t weights_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        int64_t n_sample, bool replacement, int64_t seed);
+
+/// @} dnnl_api_multinormial
+
+/// @addtogroup dnnl_api_embedding
+/// @{
+
+/// Creates a primitive descriptor for a embedding primitive.
+///
+/// @param embedding_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dict_desc Dictionary memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_embedding_primitive_desc_create(
+        dnnl_primitive_desc_t *embedding_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dict_desc,
+        const_dnnl_memory_desc_t dst_desc);
+
+/// @} dnnl_api_embedding
+
+/// @addtogroup dnnl_api_where
+/// @{
+
+/// Creates a primitive descriptor for a where primitive.
+///
+/// @param where_primitive_desc Output primitive descriptor.
+/// @param cond_desc Source memory descriptor.
+/// @param src1_desc Source memory descriptor.
+/// @param src2_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_where_primitive_desc_create(
+        dnnl_primitive_desc_t *where_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t cond_desc,
+        const_dnnl_memory_desc_t src1_desc,
+        const_dnnl_memory_desc_t src2_desc,
+        const_dnnl_memory_desc_t dst_desc);
+
+/// @} dnnl_api_where
+
+/// @addtogroup dnnl_api_gather
+/// @{
+
+/// Creates a primitive descriptor for a gather primitive.
+///
+/// @param gather_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @param idx_desc Index memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_gather_primitive_desc_create(
+        dnnl_primitive_desc_t *gather_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        const_dnnl_memory_desc_t idx_desc,
+        int gather_dim);
+
+/// @} dnnl_api_gather
+
+/// @addtogroup dnnl_api_mask
+/// @{
+
+/// Creates a primitive descriptor for a mask primitive.
+///
+/// @param mask_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @param mask_desc Mask memory descriptor.
+/// @param value value to fill in Source with.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_mask_primitive_desc_create(
+        dnnl_primitive_desc_t *mask_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        const_dnnl_memory_desc_t mask_desc,
+        double value);
+
+/// Creates a primitive descriptor for a mask primitive.
+///
+/// @param mask_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @param mask_desc Mask memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_mask_primitive_desc_create(
+        dnnl_primitive_desc_t *mask_primitive_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        const_dnnl_memory_desc_t mask_desc,
+        double value);
+
+/// @} dnnl_api_mask
+
 /// @addtogroup dnnl_api_transpose
 /// @{
 
@@ -1373,7 +1492,7 @@ dnnl_status_t DNNL_API dnnl_memory_destroy(dnnl_memory_t memory);
 ///     otherwise.
 dnnl_status_t DNNL_API dnnl_transpose_primitive_desc_create(
         dnnl_primitive_desc_t *transpose_primitive_desc,
-        dnnl_engine *engine, const_dnnl_memory_desc_t src_desc,
+        dnnl_engine_t engine, const_dnnl_memory_desc_t src_desc,
         const_dnnl_memory_desc_t dst_desc,
         dnnl_dim_t dim1, dnnl_dim_t dim2);
 

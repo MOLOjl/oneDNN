@@ -29,6 +29,11 @@ const impl_list_item_t *gpu_impl_list_t::get_implementation_list(
     case primitive_kind::kind: \
         return get_##kind##_impl_list((const kind##_desc_t *)desc);
         switch ((int)desc->kind) {
+            CASE(embedding)
+            CASE(multinormial)
+            CASE(gather)
+            CASE(mask)
+            CASE(transpose)
             CASE(batch_normalization);
             CASE(binary);
             CASE(convolution);

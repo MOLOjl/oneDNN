@@ -19,9 +19,11 @@
 
 #include "oneapi/dnnl/dnnl_config.h"
 
+#include "common/engine.hpp"
 #include "common/memory_storage.hpp"
 #include "common/utils.hpp"
-#include "sycl/sycl_engine_base.hpp"
+
+#include "xpu/sycl/engine_impl.hpp"
 #include "xpu/sycl/memory_storage_base.hpp"
 
 #include <memory>
@@ -48,9 +50,10 @@ public:
     }
 
     status_t set_data_handle(void *handle) override {
-        auto *sycl_engine
-                = utils::downcast<impl::sycl::sycl_engine_base_t *>(engine());
-        auto &sycl_ctx = sycl_engine->context();
+        const auto *sycl_engine_impl
+                = utils::downcast<const xpu::sycl::engine_impl_t *>(
+                        engine()->impl());
+        auto &sycl_ctx = sycl_engine_impl->context();
 
         usm_ptr_ = decltype(usm_ptr_)(handle, [](void *) {});
         usm_kind_ = ::sycl::get_pointer_type(handle, sycl_ctx);
@@ -121,10 +124,11 @@ public:
 
 protected:
     status_t init_allocate(size_t size) override {
-        auto *sycl_engine
-                = utils::downcast<impl::sycl::sycl_engine_base_t *>(engine());
-        auto &sycl_dev = sycl_engine->device();
-        auto &sycl_ctx = sycl_engine->context();
+        const auto *sycl_engine_impl
+                = utils::downcast<const xpu::sycl::engine_impl_t *>(
+                        engine()->impl());
+        auto &sycl_dev = sycl_engine_impl->device();
+        auto &sycl_ctx = sycl_engine_impl->context();
         using ::sycl::usm::alloc;
 
         if (usm_kind_ == alloc::unknown) usm_kind_ = alloc::shared;
