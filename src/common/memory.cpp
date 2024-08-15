@@ -95,6 +95,10 @@ dnnl_memory::dnnl_memory(dnnl::impl::engine_t *engine,
     this->reset_memory_storage(std::move(memory_storage));
 }
 
+dnnl_memory::dnnl_memory(dnnl::impl::engine_t *engine,
+        const dnnl::impl::memory_desc_t *md,
+        void* raw_data): engine_(engine), md_(*md), raw_data_(raw_data) { tag_raw_ = 1; }
+
 status_t dnnl_memory::set_data_handle(void *handle, int index) const {
     using namespace dnnl::impl;
     void *old_handle;
@@ -157,6 +161,26 @@ status_t dnnl_memory_create(memory_t **memory, const memory_desc_t *md,
         delete _memory;
         return out_of_memory;
     }
+    *memory = _memory;
+    return success;
+}
+
+// in this way, memory is just a wrapper of raw data.
+status_t dnnl_memory_create_raw(memory_t **memory, const memory_desc_t *md,
+        engine_t *engine, int place_holder, void *raw_data) {
+    // create a memory with raw pointer, not use sycl buffer.
+    if (any_null(memory, engine)) return invalid_arguments;
+
+    memory_desc_t z_md = types::zero_md();
+    if (md == nullptr) md = &z_md;
+
+    const auto mdw = memory_desc_wrapper(md);
+    VCHECK_MEMORY(
+            !mdw.format_any(), invalid_arguments, VERBOSE_UNSUPPORTED_TAG);
+    VCHECK_MEMORY(!mdw.has_runtime_dims_or_strides(), invalid_arguments,
+            VERBOSE_UNSUPPORTED_MEM_STRIDE);
+
+    auto _memory = new memory_t(engine, md, raw_data);
     *memory = _memory;
     return success;
 }

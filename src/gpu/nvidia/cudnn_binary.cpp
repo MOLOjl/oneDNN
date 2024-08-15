@@ -45,6 +45,12 @@ status_t cudnn_binary_t::execute(const exec_ctx_t &ctx) const {
                 sizeof(float)));
 
     return cuda_stream->interop_task([&](::sycl::handler &cgh) {
+        void *aa=nullptr, *bb=nullptr, *cc=nullptr;
+        int a_raw=0, b_raw=0, c_raw=0;
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC_0, aa, a_raw);
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC_1, bb, b_raw);
+        CTX_OUT_RAW_MEMORY(DNNL_ARG_DST, cc, c_raw);
+
         auto arg_src_0 = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC_0);
         auto arg_src_1 = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC_1);
         auto arg_dst = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DST);
@@ -54,10 +60,10 @@ status_t cudnn_binary_t::execute(const exec_ctx_t &ctx) const {
                     cuda_stream->engine());
             auto sc = cuda_sycl_scoped_context_handler_t(sycl_engine);
             auto handle = cuda_stream->get_cudnn_handle();
-
-            void *a = arg_src_0.get_native_pointer(ih);
-            void *b = arg_src_1.get_native_pointer(ih);
-            void *c = arg_dst.get_native_pointer(ih);
+            printf("eye12, a_raw: %d, b_raw: %d, aa:%p, bb:%p\n", a_raw, b_raw, aa, bb);
+            void *a = a_raw ? aa : arg_src_0.get_native_pointer(ih);
+            void *b = b_raw ? bb :  arg_src_1.get_native_pointer(ih);
+            void *c = c_raw ? cc :  arg_dst.get_native_pointer(ih);
 
             pd()->binary_impl_->execute(
                     handle, a, b, c, &host_scales_[0], &host_scales_[1]);

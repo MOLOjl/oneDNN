@@ -1167,6 +1167,10 @@ dnnl_status_t DNNL_API dnnl_memory_create(dnnl_memory_t *memory,
         const_dnnl_memory_desc_t memory_desc, dnnl_engine_t engine,
         void *handle);
 
+dnnl_status_t DNNL_API dnnl_memory_create_raw(dnnl_memory_t *memory,
+        const_dnnl_memory_desc_t memory_desc, dnnl_engine_t engine,
+        int place_holder, void *raw_data);
+
 #ifdef DNNL_EXPERIMENTAL_SPARSE
 /// Creates a memory object with multiple handles.
 ///

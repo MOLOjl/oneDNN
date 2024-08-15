@@ -53,6 +53,14 @@ struct cudnn_binary_impl_base_t {
 
     void execute(cudnnHandle_t handle, void *a, void *b, void *c, void *a_scale,
             void *b_scale) const {
+        if(1){
+            std::vector<float> a_buf(20, 0);
+            std::vector<float> b_buf(20, 0);
+            cudaMemcpy(a_buf.data(), a, 20*sizeof(float), cudaMemcpyDeviceToHost);
+            cudaMemcpy(b_buf.data(), b, 20*sizeof(float), cudaMemcpyDeviceToHost);
+            printf("a[0]:%f, b[0]%f, a_scale:%f, b_scale:%f\n", a_buf[0], b_buf[0], *(float*)a_scale, *(float*)b_scale);
+        }
+
         CUDNN_EXECUTE_FUNC(cudnnOpTensor, handle, op_desc, a_scale,
                 tensor_descs[src_0], a, b_scale, tensor_descs[src_1], b, &beta,
                 tensor_descs[dst_0], c);

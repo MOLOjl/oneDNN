@@ -3342,6 +3342,14 @@ struct memory : public handle<dnnl_memory_t> {
         reset(result);
     }
 
+    memory(const desc &md, const engine &aengine, int place_holder, void *raw_data) {
+        dnnl_memory_t result;
+        error::wrap_c_api(
+                dnnl_memory_create_raw(&result, md.get(), aengine.get(), place_holder, raw_data),
+                "could not create a memory object");
+        reset(result);
+    }
+
     /// Constructs a memory object.
     ///
     /// The underlying buffer for the memory will be allocated by the library.
@@ -4932,12 +4940,10 @@ struct multinormial : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &weights, const memory &dst, 
-                int64_t n_sample, bool replacement, int64_t seed, 
-                bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory::desc &weights_md, 
+                const memory::desc &dst_md, int64_t n_sample, bool replacement, 
+                int64_t seed, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
-            auto weights_md = weights.get_desc();
-            auto dst_md = dst.get_desc();
             dnnl_status_t status = dnnl_multinormial_primitive_desc_create(&result,
                     aengine.get(), weights_md.get(), dst_md.get(), 
                     n_sample, replacement, seed);
@@ -5018,12 +5024,9 @@ struct embedding : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &src, const memory &dict, 
-                const memory &dst, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory::desc &src_md, const memory::desc &dict_md, 
+                const memory::desc &dst_md, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
-            auto src_md = src.get_desc();
-            auto dict_md = dict.get_desc();
-            auto dst_md = dst.get_desc();
             dnnl_status_t status = dnnl_embedding_primitive_desc_create(&result,
                     aengine.get(), src_md.get(), dict_md.get(), dst_md.get());
             if (!allow_empty)
@@ -5108,13 +5111,9 @@ struct where : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &cond, const memory &src1,
-                const memory &src2, const memory &dst, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory::desc &cond_md, const memory::desc &src1_md,
+                const memory::desc &src2_md, const memory::desc &dst_md, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
-            auto cond_md = cond.get_desc();
-            auto src1_md = src1.get_desc();
-            auto src2_md = src2.get_desc();
-            auto dst_md = dst.get_desc();
             dnnl_status_t status = dnnl_where_primitive_desc_create(&result,
                     aengine.get(), cond_md.get(), src1_md.get(), src2_md.get(), 
                     dst_md.get());
@@ -5207,12 +5206,9 @@ struct gather : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &src, const memory &dst,
-                const memory &idx, int gather_dim, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory::desc &src_md, const memory::desc &dst_md,
+                const memory::desc &idx_md, int gather_dim, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
-            auto src_md = src.get_desc();
-            auto idx_md = idx.get_desc();
-            auto dst_md = dst.get_desc();
             dnnl_status_t status = dnnl_gather_primitive_desc_create(&result,
                     aengine.get(), src_md.get(), dst_md.get(), idx_md.get(), gather_dim);
             if (!allow_empty)
@@ -5296,12 +5292,9 @@ struct mask : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &src, const memory &dst,
-                const memory &mask, double value, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory::desc &src_md, const memory::desc &dst_md,
+                const memory::desc &mask_md, double value, bool allow_empty = false) {
             dnnl_primitive_desc_t result;
-            auto src_md = src.get_desc();
-            auto mask_md = mask.get_desc();
-            auto dst_md = dst.get_desc();
             dnnl_status_t status = dnnl_mask_primitive_desc_create(&result,
                     aengine.get(), src_md.get(), dst_md.get(), mask_md.get(), value);
             if (!allow_empty)
@@ -5412,11 +5405,10 @@ struct transpose : public primitive {
         ///     to fail without throwing an exception. In this case an empty
         ///     object will be produced. This flag is optional and defaults to
         ///     false.
-        primitive_desc(const engine &aengine, const memory &src, const memory &dst,
-                memory::dim dim1, memory::dim dim2, bool allow_empty = false) {
+        primitive_desc(const engine &aengine, const memory::desc &src_md, 
+                const memory::desc &dst_md, memory::dim dim1, memory::dim dim2, 
+                bool allow_empty = false) {
             dnnl_primitive_desc_t result;
-            auto src_md = src.get_desc();
-            auto dst_md = dst.get_desc();
             dnnl_status_t status = dnnl_transpose_primitive_desc_create(&result,
                     aengine.get(), src_md.get(), dst_md.get(), dim1, dim2);
             if (!allow_empty)
