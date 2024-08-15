@@ -706,7 +706,6 @@ struct op_desc_t {
     DECL_CTOR_AND_CONVERTERS(zero_pad_desc_t);
     DECL_CTOR_AND_CONVERTERS(reduction_desc_t);
     DECL_CTOR_AND_CONVERTERS(sdpa_desc_t);
-    DECL_CTOR_AND_CONVERTERS(transpose_desc_t);
     DECL_CTOR_AND_CONVERTERS(mask_desc_t);
     DECL_CTOR_AND_CONVERTERS(gather_desc_t);
     DECL_CTOR_AND_CONVERTERS(where_desc_t);
