@@ -3534,6 +3534,7 @@ dnnl_status_t DNNL_API dnnl_matmul_primitive_desc_create(
         const_dnnl_memory_desc_t src_desc,
         const_dnnl_memory_desc_t weights_desc,
         const_dnnl_memory_desc_t bias_desc, const_dnnl_memory_desc_t dst_desc,
+        bool trans_src, bool trans_wei,
         const_dnnl_primitive_attr_t attr);
 
 /// @} dnnl_api_matmul

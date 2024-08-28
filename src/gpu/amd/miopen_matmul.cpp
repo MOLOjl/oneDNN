@@ -46,7 +46,7 @@ status_t miopen_matmul_t::execute(const exec_ctx_t &ctx) const {
     status_t status;
     if (has_runtime_args) {
         // Initialise all runtime parameters
-        status = matmul_impl_->init_parameters(src_d, weights_d, dst_d, bias_d);
+        status = matmul_impl_->init_parameters((matmul_pd_t*)(pd()), src_d, weights_d, dst_d, bias_d);
         if (status != status::success) return status;
     }
 

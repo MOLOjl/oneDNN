@@ -275,14 +275,14 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
     }
 }
 
-#define HIP_ERROR_LOCATION __FILE__ " : " STRINGIFY(__LINE__)
+#define HIP_ERROR_LOCATION __FILE__ ":" STRINGIFY(__LINE__)
 
 #define HIP_EXECUTE_FUNC(name, ...) \
     { \
         auto err = name(__VA_ARGS__); \
         if (err != hipSuccess) { \
             throw hip_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(#name) + std::string(" : "), \
                     err); \
         } \
@@ -292,7 +292,7 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
         auto err = name(__VA_ARGS__); \
         if (err != rocblas_status_success) { \
             throw rocblas_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(#name) + std::string(" : "), \
                     err); \
         } \
@@ -303,7 +303,7 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
         auto err = name(__VA_ARGS__); \
         if (err != miopenStatusSuccess) { \
             throw miopen_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(#name) + std::string(" : "), \
                     err); \
         } \
@@ -314,7 +314,7 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
         auto err = name(__VA_ARGS__); \
         if (err != HIP_SUCCESS) { \
             std::cout << hip_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(#name) + std::string(" : "), \
                     err) \
                                  .what() \
@@ -327,7 +327,7 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
         auto err = name(__VA_ARGS__); \
         if (err != miopenStatusSuccess) { \
             std::cout << miopen_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(#name) + std::string(" : "), \
                     err) \
                                  .what() \
@@ -340,7 +340,7 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
         auto err = name(__VA_ARGS__); \
         if (err != rocblas_status_success) { \
             std::cout << rocblas_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(#name) + std::string(" : "), \
                     err) \
                                  .what() \
@@ -353,7 +353,7 @@ static status_t miopen_to_dnnl_status(miopenStatus_t miopen_status) {
         auto status = (e); \
         if (status != miopenStatusSuccess) { \
             std::cout << miopen_error(std::string("At :") \
-                            + std::string(HIP_ERROR_LOCATION) \
+                            + std::string(HIP_ERROR_LOCATION) + " " \
                             + std::string(" : "), \
                     status) \
                                  .what() \

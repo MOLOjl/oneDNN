@@ -86,6 +86,10 @@ struct dnnl_memory : public dnnl::impl::c_compatible {
 
     /** returns data handle */
     dnnl::impl::status_t get_data_handle(void **handle, int index = 0) const {
+        if(tag_raw_){
+            *handle = raw_data_;
+            return dnnl_success;
+        }
         return memory_storage(index)->get_data_handle(handle);
     }
 

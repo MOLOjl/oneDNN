@@ -94,7 +94,6 @@ struct miopen_softmax_fwd_impl_t : public miopen_softmax_impl_base_t {
     void execute(miopenHandle_t handle, void **x, int size) const override {
         // Confirm that 2 arguments were passed, src and dst
         assert(size == 2);
-
         MIOPEN_EXECUTE_FUNC(miopenSoftmaxForward_V2, handle, &alpha,
                 tensor_desc, x[0], &beta, tensor_desc, x[1], alg_kind, mode);
     }

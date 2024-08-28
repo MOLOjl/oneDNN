@@ -32,24 +32,28 @@ status_t miopen_binary_t::execute(const exec_ctx_t &ctx) const {
     amd::stream_t *hip_stream = utils::downcast<amd::stream_t *>(ctx.stream());
 
     return hip_stream->interop_task([&](::sycl::handler &cgh) {
-        printf("eye11\n");
+        void *aa=nullptr, *bb=nullptr, *cc=nullptr;
+        int a_raw=0, b_raw=0, c_raw=0;
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC_0, aa, a_raw);
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC_1, bb, b_raw);
+        CTX_OUT_RAW_MEMORY(DNNL_ARG_DST, cc, c_raw);
+        
         auto arg_src_0 = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC_0);
         auto arg_src_1 = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC_1);
         auto arg_dst = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DST);
-        auto arg_scale0
-                = CTX_IN_SYCL_MEMORY(DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC_0);
-        auto arg_scale1
-                = CTX_IN_SYCL_MEMORY(DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC_1);
-        printf("eye12\n");
+        auto arg_scale0 = CTX_IN_SYCL_MEMORY(DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC_0);
+        auto arg_scale1 = CTX_IN_SYCL_MEMORY(DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC_1);
+
         compat::host_task(cgh, [=](const compat::interop_handle &ih) {
             auto &sycl_engine
                     = *utils::downcast<amd::engine_t *>(hip_stream->engine());
             auto sc = hip_sycl_scoped_context_handler_t(sycl_engine);
             auto handle = hip_stream->get_miopen_handle();
 
-            void *a = arg_src_0.get_native_pointer(ih);
-            void *b = arg_src_1.get_native_pointer(ih);
-            void *c = arg_dst.get_native_pointer(ih);
+            // printf("eye12, a_raw: %d, b_raw: %d, aa:%p, bb:%p\n", a_raw, b_raw, aa, bb);
+            void *a = a_raw ? aa : arg_src_0.get_native_pointer(ih);
+            void *b = b_raw ? bb : arg_src_1.get_native_pointer(ih);
+            void *c = c_raw ? cc : arg_dst.get_native_pointer(ih);
             void *s0 = arg_scale0.get_native_pointer(ih);
             void *s1 = arg_scale1.get_native_pointer(ih);
 

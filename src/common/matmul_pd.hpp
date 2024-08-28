@@ -79,6 +79,8 @@ struct matmul_pd_t : public primitive_desc_t {
         return &glob_zero_md;
     }
 
+    const bool trans_src() { return trans_src_; }
+
     const memory_desc_t *weights_md(
             int index = 0, bool user_input = false) const override {
         if (index == 0)
@@ -86,6 +88,8 @@ struct matmul_pd_t : public primitive_desc_t {
         if (index == 1) return user_input ? &desc()->bias_desc : &bias_md_;
         return &glob_zero_md;
     }
+    
+    const bool trans_wei() { return trans_wei_; }
 
     const memory_desc_t *dst_md(
             int index = 0, bool user_input = false) const override {
@@ -193,6 +197,8 @@ protected:
     memory_desc_t weights_md_;
     memory_desc_t bias_md_;
     memory_desc_t dst_md_;
+    bool trans_src_ = false;
+    bool trans_wei_ = false;
 
     matmul_pd_t(const matmul_desc_t *adesc, const primitive_attr_t *attr,
             const matmul_pd_t *hint_fwd_pd)
@@ -201,7 +207,9 @@ protected:
         , src_md_(desc_.src_desc)
         , weights_md_(desc_.weights_desc)
         , bias_md_(desc_.bias_desc)
-        , dst_md_(desc_.dst_desc) {}
+        , dst_md_(desc_.dst_desc)
+        , trans_src_(desc_.trans_src)
+        , trans_wei_(desc_.trans_wei) {}
 
     // temporary solution to deal with format `any`
     bool set_default_formats() {

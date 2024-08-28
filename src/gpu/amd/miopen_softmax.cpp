@@ -33,6 +33,11 @@ status_t miopen_softmax_fwd_t::execute(const exec_ctx_t &ctx) const {
     amd::stream_t *hip_stream = utils::downcast<amd::stream_t *>(ctx.stream());
 
     return hip_stream->interop_task([&](::sycl::handler &cgh) {
+        void *src_ptr=nullptr, *dst_ptr=nullptr;
+        int src_raw=0, dst_raw=0;
+        CTX_IN_RAW_MEMORY(DNNL_ARG_SRC, src_ptr, src_raw);
+        CTX_OUT_RAW_MEMORY(DNNL_ARG_DST, dst_ptr, dst_raw);
+
         auto arg_src = CTX_IN_SYCL_MEMORY(DNNL_ARG_SRC);
         auto arg_dst = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DST);
 
@@ -43,9 +48,11 @@ status_t miopen_softmax_fwd_t::execute(const exec_ctx_t &ctx) const {
             auto sc = hip_sycl_scoped_context_handler_t(sycl_engine);
 
             auto handle = hip_stream->get_miopen_handle();
-
-            args.push_back(arg_src.get_native_pointer(ih));
-            args.push_back(arg_dst.get_native_pointer(ih));
+            
+            void* src_p = src_raw ? src_ptr : arg_src.get_native_pointer(ih);
+            void* dst_p = dst_raw ? dst_ptr : arg_dst.get_native_pointer(ih);
+            args.push_back(src_p);
+            args.push_back(dst_p);
 
             pd()->softmax_impl_->execute(handle, args.data(), args.size());
         });
@@ -59,6 +66,12 @@ status_t miopen_softmax_bwd_t::execute(const exec_ctx_t &ctx) const {
     amd::stream_t *hip_stream = utils::downcast<amd::stream_t *>(ctx.stream());
 
     return hip_stream->interop_task([&](::sycl::handler &cgh) {
+        void *dst_ptr=nullptr, *diff_dst_ptr=nullptr, *diff_src_ptr=nullptr;
+        int dst_raw=0, diff_dst_raw=0, diff_src_raw=0;
+        CTX_IN_RAW_MEMORY(DNNL_ARG_DST, dst_ptr, dst_raw);
+        CTX_IN_RAW_MEMORY(DNNL_ARG_DIFF_DST, diff_dst_ptr, diff_dst_raw);
+        CTX_OUT_RAW_MEMORY(DNNL_ARG_DIFF_SRC, diff_src_ptr, diff_src_raw);
+
         auto arg_dst = CTX_IN_SYCL_MEMORY(DNNL_ARG_DST);
         auto arg_diff_dst = CTX_IN_SYCL_MEMORY(DNNL_ARG_DIFF_DST);
         auto arg_diff_src = CTX_OUT_SYCL_MEMORY(DNNL_ARG_DIFF_SRC);
@@ -71,9 +84,12 @@ status_t miopen_softmax_bwd_t::execute(const exec_ctx_t &ctx) const {
 
             auto handle = hip_stream->get_miopen_handle();
 
-            args.push_back(arg_dst.get_native_pointer(ih));
-            args.push_back(arg_diff_dst.get_native_pointer(ih));
-            args.push_back(arg_diff_src.get_native_pointer(ih));
+            void* dst_p = dst_raw ? dst_ptr : arg_dst.get_native_pointer(ih);
+            void* diff_dst_p = diff_dst_raw ? diff_dst_ptr : arg_diff_dst.get_native_pointer(ih);
+            void* diff_src_p = diff_src_raw ? diff_src_ptr : arg_diff_src.get_native_pointer(ih);
+            args.push_back(dst_p);
+            args.push_back(diff_dst_p);
+            args.push_back(diff_src_p);
 
             pd()->softmax_impl_->execute(handle, args.data(), args.size());
         });

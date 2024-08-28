@@ -255,6 +255,9 @@ struct matmul_desc_t {
     memory_desc_t bias_desc;
     // Destination memory descriptor.
     memory_desc_t dst_desc;
+    // Whether src or wei is transposed.
+    bool trans_src = false;
+    bool trans_wei = false;
     // The accumulator data type. Initialized automatically.
     data_type_t accum_data_type;
 };

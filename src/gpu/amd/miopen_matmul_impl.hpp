@@ -131,7 +131,7 @@ struct miopen_matmul_impl_t {
 
         if (!has_runtime_params_) {
             // Initialise all gemm parameters if there are no runtime parameters
-            init_parameters(src_d, weights_d, dst_d,
+            init_parameters(pd, src_d, weights_d, dst_d,
                     memory_desc_wrapper(pd->weights_md(1)));
         }
 
@@ -162,14 +162,17 @@ struct miopen_matmul_impl_t {
         }
     }
 
-    int get_ld(const memory_desc_wrapper desc, rocblas_operation trans) {
+    int get_ld(const memory_desc_wrapper desc) {
         const int ndims = desc.ndims();
-        const auto *strides = &desc.blocking_desc().strides[ndims - 2];
-        const int ld
-                = strides[trans == rocblas_operation::rocblas_operation_none
-                                ? 0
-                                : 1];
+        auto& dims = desc.dims();
+        int ld = dims[ndims - 1];
         return ld;
+        // const auto *strides = &desc.blocking_desc().strides[ndims - 2];
+        // const int ld
+        //         = strides[trans == rocblas_operation::rocblas_operation_none
+        //                         ? 0
+        //                         : 1];
+        // return ld;
     }
 
     int get_batch_stride(const memory_desc_wrapper desc) {
@@ -178,7 +181,7 @@ struct miopen_matmul_impl_t {
         return dims[0] == 1 ? 0 : strides[0];
     }
 
-    status_t init_gemm_parameters(const memory_desc_wrapper src_d,
+    status_t init_gemm_parameters(matmul_pd_t *pd, const memory_desc_wrapper src_d,
             const memory_desc_wrapper weights_d,
             const memory_desc_wrapper dst_d) {
         weightBroadcastNeeded = false;
@@ -196,54 +199,52 @@ struct miopen_matmul_impl_t {
             batch_count_ = dst_d.dims()[0];
         }
 
-        const dim_t M = dst_d.dims()[isbatched_ + 1];
-        const dim_t N = dst_d.dims()[isbatched_ + 0];
-        const dim_t K = src_d.dims()[isbatched_ + 1];
+        transA_ = pd->trans_wei()
+                ? rocblas_operation::rocblas_operation_transpose 
+                : rocblas_operation::rocblas_operation_none;
+
+        transB_ = pd->trans_src() 
+                ? rocblas_operation::rocblas_operation_transpose 
+                : rocblas_operation::rocblas_operation_none;
+
+        int ndims = dst_d.ndims();
+        // dst is seen as N*M
+        const dim_t N = dst_d.dims()[ndims - 2];
+        const dim_t M = dst_d.dims()[ndims - 1];
+        const dim_t K = src_d.dims()[pd->trans_src() ? ndims-2 : ndims-1];
 
         M_ = (int)M;
         N_ = (int)N;
         K_ = (int)K;
 
         const auto dst_strides_org = dst_d.blocking_desc().strides;
-        const auto &src_strides = &src_d.blocking_desc().strides[isbatched_];
-        const auto &weights_strides
-                = &weights_d.blocking_desc().strides[isbatched_];
-
-        // A matrix is the weights
-        transA_ = weights_strides[1] == 1
-                        && weights_d.dims()[isbatched_ + 0] > 1
-                ? rocblas_operation::rocblas_operation_none
-                : rocblas_operation::rocblas_operation_transpose;
-
-        // B matrix is the src
-        transB_ = src_strides[1] == 1 && src_d.dims()[isbatched_ + 0] > 1
-                ? rocblas_operation::rocblas_operation_none
-                : rocblas_operation::rocblas_operation_transpose;
-
+        
         // C matrix is the dst
         transC_ = dst_strides_org[dst_d.ndims() - 1] != 1
                 ? rocblas_operation::rocblas_operation_transpose
                 : rocblas_operation::rocblas_operation_none;
 
-        lda_ = get_ld(weights_d, transA_);
-        ldb_ = get_ld(src_d, transB_);
-        ldc_ = get_ld(dst_d, transC_);
+        // since we see row storage first matrix as column storage first matrix,
+        // use the last dimension as ld. 
+        lda_ = get_ld(weights_d);
+        ldb_ = get_ld(src_d);
+        ldc_ = get_ld(dst_d);
 
         if (isbatched_) {
-            stride_a_ = get_batch_stride(weights_d);
-            stride_b_ = get_batch_stride(src_d);
+            stride_a_ = get_batch_stride(src_d);
+            stride_b_ = get_batch_stride(weights_d);
             stride_c_ = get_batch_stride(dst_d);
         }
 
         return status::success;
     }
 
-    status_t init_parameters(const memory_desc_wrapper src_d,
+    status_t init_parameters(matmul_pd_t *pd, const memory_desc_wrapper src_d,
             const memory_desc_wrapper weights_d,
             const memory_desc_wrapper dst_d, const memory_desc_wrapper bias_d) {
         // Matmul supports runtime paramters for dimensions and scales.
         // We need to initialize them in the execute function.
-        CHECK(init_gemm_parameters(src_d, weights_d, dst_d));
+        CHECK(init_gemm_parameters(pd, src_d, weights_d, dst_d));
 
         if (with_bias_ || with_eltwise_) {
             // Initialise MIOpen descriptors
@@ -318,6 +319,12 @@ struct miopen_matmul_impl_t {
                         scratch, dst_type_, ldc_, scratch, dst_type_, ldc_,
                         acc_type_, gemm_algo_, solution_index, (uint32_t)flags);
             } else {
+                // printf("transA_:%d, transB_:%d, M_:%d, N_:%d, K_:%d, lda_:%d,  ldb_:%d, ldc_:%d\n", 
+                //         transA_ == rocblas_operation::rocblas_operation_transpose, 
+                //         transB_ == rocblas_operation::rocblas_operation_transpose, 
+                //         M_, N_, K_, lda_, ldb_, ldc_);
+                // printf("A:%p, B:%p, C:%p\n", a, b, scratch);
+
                 ROCBLAS_EXECUTE_FUNC(rocblas_gemm_ex, rocblas_handle, transA_,
                         transB_, M_, N_, K_, alpha, a, weights_type_, lda_, b,
                         src_type_, ldb_, beta, scratch, dst_type_, ldc_,

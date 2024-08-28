@@ -3451,6 +3451,14 @@ struct memory : public handle<dnnl_memory_t> {
                 "could not unmap memory object data");
     }
 #else
+    /// Returns the raw data ptr underlying memory wrapper.
+    void *get_raw_ptr() const {
+        void *handle;
+        error::wrap_c_api(dnnl_memory_get_data_handle(get(), &handle),
+                "could not get a raw ptr from a memory object");
+        return handle;
+    }
+
     /// Returns the underlying memory buffer.
     ///
     /// On the CPU engine, or when using USM, this is a pointer to the
@@ -13145,7 +13153,15 @@ struct matmul : public primitive {
                 const primitive_attr &attr = default_attr(),
                 bool allow_empty = false)
             : primitive_desc(aengine, src_desc, weights_desc, nullptr, dst_desc,
-                    attr, allow_empty) {}
+                    false, false, attr, allow_empty) {}
+
+        primitive_desc(const engine &aengine, const memory::desc &src_desc,
+                const memory::desc &weights_desc, const memory::desc &dst_desc, 
+                bool trans_src, bool trans_wei,
+                const primitive_attr &attr = default_attr(),
+                bool allow_empty = false)
+            : primitive_desc(aengine, src_desc, weights_desc, nullptr, dst_desc,
+                    trans_src, trans_wei, attr, allow_empty) {}
 
         /// Constructs a primitive descriptor for a matmul primitive with bias.
         ///
@@ -13166,7 +13182,15 @@ struct matmul : public primitive {
                 const primitive_attr &attr = default_attr(),
                 bool allow_empty = false)
             : primitive_desc(aengine, src_desc, weights_desc, &bias_desc,
-                    dst_desc, attr, allow_empty) {}
+                    dst_desc, false, false, attr, allow_empty) {}
+
+        primitive_desc(const engine &aengine, const memory::desc &src_desc,
+                const memory::desc &weights_desc, const memory::desc &bias_desc,
+                const memory::desc &dst_desc, bool trans_src, bool trans_wei,
+                const primitive_attr &attr = default_attr(),
+                bool allow_empty = false)
+            : primitive_desc(aengine, src_desc, weights_desc, &bias_desc,
+                    dst_desc, trans_src, trans_wei, attr, allow_empty) {}
 
         /// Constructs a primitive descriptor for a matmul primitive from a C
         /// API primitive descriptor that must have a matching kind.
@@ -13194,13 +13218,14 @@ struct matmul : public primitive {
     private:
         primitive_desc(const engine &aengine, const memory::desc &src_desc,
                 const memory::desc &weights_desc, const memory::desc *bias_desc,
-                const memory::desc &dst_desc, const primitive_attr &attr,
-                bool allow_empty) {
+                const memory::desc &dst_desc, bool trans_src, bool trans_wei, 
+                const primitive_attr &attr, bool allow_empty) {
 
             dnnl_primitive_desc_t pd = nullptr;
             dnnl_status_t status = dnnl_matmul_primitive_desc_create(&pd,
                     aengine.get(), src_desc.get(), weights_desc.get(),
-                    optional_arg(bias_desc), dst_desc.get(), attr.get());
+                    optional_arg(bias_desc), dst_desc.get(), trans_src, 
+                    trans_wei, attr.get());
 
             if (!allow_empty)
                 error::wrap_c_api(status,
