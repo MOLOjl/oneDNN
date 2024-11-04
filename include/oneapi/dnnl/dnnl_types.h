@@ -2029,7 +2029,8 @@ typedef enum {
     dnnl_multinormial,
     /// A embdedding primitive.
     dnnl_embedding,
-    
+    /// A tensorscalar primitive.
+    dnnl_tsop,
     /// Parameter to allow internal only primitives without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.
     dnnl_primitive_kind_max = 0x7fff,
@@ -2185,6 +2186,9 @@ typedef enum {
     dnnl_softmax_accurate = 0x30000,
     /// Logsoftmax
     dnnl_softmax_log,
+    // custom alg kind, fill
+    dnnl_tsop_fill,
+    dnnl_tsop_arange,
 } dnnl_alg_kind_t;
 
 /// Flags for normalization primitives.

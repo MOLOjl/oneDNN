@@ -88,6 +88,10 @@ struct prec_traits<data_type::u4> {
     typedef uint4_t type;
 };
 template <>
+struct prec_traits<data_type::s64> {
+    typedef int64_t type;
+};
+template <>
 struct prec_traits<data_type::boolean> {
     typedef bool type;
 };
@@ -181,6 +185,8 @@ PKIND_TRAITS_INST(gather);
 PKIND_TRAITS_INST(where);
 PKIND_TRAITS_INST(multinormial);
 PKIND_TRAITS_INST(embedding);
+PKIND_TRAITS_INST(tsop);
+
 #undef PKIND_TRAITS_INST
 
 } // namespace impl

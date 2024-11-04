@@ -102,6 +102,8 @@ typedef enum {
     dnnl_s4 = 11,
     /// 4-bit unsigned integer.
     dnnl_u4 = 12,
+    /// 64-bit signed integer.
+    dnnl_s64 = 13,
 
     /// Parameter to allow internal only data_types without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.

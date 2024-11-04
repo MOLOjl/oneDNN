@@ -15,6 +15,8 @@
 *******************************************************************************/
 
 #include <hip/hip_runtime.h>
+#include <hip/hip_fp16.h>
+#include <hip/hip_bfloat16.h>
 
 namespace hip_custom {
 
@@ -32,6 +34,16 @@ void gather(void *input, void *output, void *index, const size_t *dims, int num_
 void where(void *condition, void *input, void *other, void *output, 
   const size_t *dims_c, const size_t *dims_i, const size_t *dims_other, const size_t *dims_o, 
   int num_dims, int dtype);
+
+template <typename T1>
+void fill(T1 *ioput, const size_t length, T1 value);
+
+void fill_bf16(hip_bfloat16* ioput, const size_t length, double value);
+
+template <typename T1, typename T2>
+void arange(T1 *ioput, T2 start, T2 end, T2 step);
+
+void arange_bf16(hip_bfloat16 *ioput, double start, double end, double step);
 
 void print_device_array(void* dev_a, size_t length, int dtype);
 

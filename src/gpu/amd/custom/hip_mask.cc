@@ -85,7 +85,7 @@ __global__ void mask_kernel_f32(float* input, float* output, char* mask, size_t*
 }
 
 // Kernel to mask the input, can be done in place. the mask tensor shall be broadcastable to the input tensor.
-__global__ void mask_kernel_f16(half* input, half* output, char* mask, size_t* stride_io, size_t* dims_mask, int num_dims, size_t total_elements, half masked_value)
+__global__ void mask_kernel_f16(half* input, half* output, char* mask, size_t* stride_io, size_t* dims_mask, int num_dims, size_t total_elements, float masked_value)
 {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int Scope = blockDim.x * gridDim.x;
@@ -140,7 +140,7 @@ __global__ void mask_kernel_f16(half* input, half* output, char* mask, size_t* s
     char mask_value = mask[mask_offset];
     // Fills elements of input tensor with value where mask is True
     if(mask_value != 0)
-      output[io_offset] = __half2float(masked_value);
+      output[io_offset] = __float2half(masked_value);
     // if not inplace and mask is False, copy input to output.
     if(input != output && mask_value == 0)
       output[io_offset] = input[io_offset];

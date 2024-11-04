@@ -144,6 +144,9 @@ template <>
 struct numeric_limits<int32_t> : public std::numeric_limits<int32_t> {};
 
 template <>
+struct numeric_limits<int64_t> : public std::numeric_limits<int64_t> {};
+
+template <>
 struct numeric_limits<int16_t> : public std::numeric_limits<int16_t> {};
 
 template <>

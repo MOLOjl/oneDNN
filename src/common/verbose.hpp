@@ -195,6 +195,7 @@ struct component_t {
         where = 1 << 27,
         multinormial = 1 << 28,
         embedding = 1 << 29,
+        tsop = 1 << 30,
         all = (uint32_t)-1,
     };
 };

@@ -203,22 +203,20 @@ status_t matmul_desc_init(matmul_desc_t *matmul_desc,
     n = dst_desc->dims[ndims - 1];
     k = trans_src ? src_desc->dims[ndims - 2] : src_desc->dims[ndims - 1];
 
-	auto src_m = trans_src ? src_desc->dims[ndims - 1] : src_desc->dims[ndims - 2];
-	auto wei_n = trans_wei ? weights_desc->dims[ndims - 2] : weights_desc->dims[ndims - 1];
-	auto wei_k = trans_wei ? weights_desc->dims[ndims - 1] : weights_desc->dims[ndims - 2];
-	
-	printf("m,n,k: %ld, %ld, %ld\n", m, n, k);
+    auto src_m = trans_src ? src_desc->dims[ndims - 1] : src_desc->dims[ndims - 2];
+    auto wei_n = trans_wei ? weights_desc->dims[ndims - 2] : weights_desc->dims[ndims - 1];
+    auto wei_k = trans_wei ? weights_desc->dims[ndims - 1] : weights_desc->dims[ndims - 2];
 
-	MATMUL_MNK_CHECK(src_m == m);
-	MATMUL_MNK_CHECK(wei_n == n);
-	MATMUL_MNK_CHECK(wei_k == k);
-	
-	if(with_bias){
-		auto bias_m = op_d.bias_desc.ndims>1 ? op_d.bias_desc.dims[op_d.bias_desc.ndims - 2] : 1;
-		auto bias_n = op_d.bias_desc.dims[op_d.bias_desc.ndims - 1];
-		MATMUL_MNK_CHECK(bias_n == n);
-		MATMUL_MNK_CHECK(bias_m == 1 || bias_m == m);		
-	}
+    MATMUL_MNK_CHECK(src_m == m);
+    MATMUL_MNK_CHECK(wei_n == n);
+    MATMUL_MNK_CHECK(wei_k == k);
+
+    if(with_bias){
+            auto bias_m = op_d.bias_desc.ndims>1 ? op_d.bias_desc.dims[op_d.bias_desc.ndims - 2] : 1;
+            auto bias_n = op_d.bias_desc.dims[op_d.bias_desc.ndims - 1];
+            MATMUL_MNK_CHECK(bias_n == n);
+            MATMUL_MNK_CHECK(bias_m == 1 || bias_m == m);		
+    }
 
     // const int m_idx = ndims - 2;
     // const int k_idx_src = m_idx + 1;

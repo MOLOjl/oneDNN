@@ -157,6 +157,7 @@ const data_type_t s8 = dnnl_s8;
 const data_type_t u8 = dnnl_u8;
 const data_type_t s4 = dnnl_s4;
 const data_type_t u4 = dnnl_u4;
+const data_type_t s64 = dnnl_s64;
 const data_type_t boolean = dnnl_boolean;
 const data_type_t data_type_max = dnnl_data_type_max;
 
@@ -1917,6 +1918,7 @@ const runtime_kind_t sycl = dnnl_runtime_sycl;
 using primitive_kind_t = dnnl_primitive_kind_t;
 namespace primitive_kind {
 const primitive_kind_t undefined = dnnl_undefined_primitive;
+const primitive_kind_t tsop = dnnl_tsop;
 const primitive_kind_t multinormial = dnnl_multinormial;
 const primitive_kind_t embedding = dnnl_embedding;
 const primitive_kind_t where = dnnl_where;

@@ -95,6 +95,7 @@ inline size_t data_type_size(data_type_t data_type) {
         case u8: return sizeof(prec_traits<u8>::type);
         case s4: return sizeof(prec_traits<s4>::type);
         case u4: return sizeof(prec_traits<u4>::type);
+        case s64: return sizeof(prec_traits<s64>::type);
         case boolean: return sizeof(prec_traits<boolean>::type);
         case data_type::undef:
         default: assert(!"unknown data_type");
@@ -118,6 +119,7 @@ inline T max_value(data_type_t data_type) {
         CASE(u8);
         CASE(s4);
         CASE(u4);
+        CASE(s64);
         case data_type::undef:
         default: assert(!"unknown data_type");
     }
@@ -142,6 +144,7 @@ inline float max_value(data_type_t data_type) {
         CASE(u8);
         CASE(s4);
         CASE(u4);
+        CASE(s64);
         // INT_MAX is not representable in float. The nearest float to it is
         // INT_MAX + 1 = 2^31 (0x4f000000). Regular conversion instructions such
         // as `cvtps2dq` or `cvtss2si` will convert this number to INT_MIN
@@ -300,6 +303,7 @@ inline data_type_t default_accum_data_type(
     if (one_of(f32, src_dt, dst_dt)) return f32;
     if (one_of(f64, src_dt, dst_dt)) return f64;
     if (one_of(s32, src_dt, dst_dt)) return s32;
+    if (one_of(s64, src_dt, dst_dt)) return s64;
 
     if (one_of(s8, src_dt, dst_dt) || one_of(u8, src_dt, dst_dt)
             || one_of(s4, src_dt, dst_dt) || one_of(u4, src_dt, dst_dt))
@@ -334,6 +338,7 @@ inline data_type_t default_accum_data_type(data_type_t src_dt,
             return f32;
     }
 
+    if (one_of(f64, src_dt, wei_dt, dst_dt)) return f64;
     if (one_of(f8_e5m2, src_dt, wei_dt, dst_dt)) return f32;
     if (one_of(f8_e4m3, src_dt, wei_dt, dst_dt)) return f32;
     if (one_of(bf16, src_dt, wei_dt, dst_dt)) return f32;
@@ -344,7 +349,7 @@ inline data_type_t default_accum_data_type(data_type_t src_dt,
 
 inline bool is_integral_dt(data_type_t dt) {
     using namespace data_type;
-    return utils::one_of(dt, s32, s8, u8, u4, s4);
+    return utils::one_of(dt, s32, s8, u8, u4, s4, s64);
 }
 
 template <typename data_t>
@@ -854,6 +859,15 @@ inline bool operator==(const embedding_desc_t &lhs, const embedding_desc_t &rhs)
     return ret;
 }
 
+inline bool operator==(const tsop_desc_t &lhs, const tsop_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(alg_kind)
+            && COMPARE_DESC_MEMBERS(src_desc)
+            && COMPARE_DESC_MEMBERS(dst_desc)
+            && COMPARE_DESC_MEMBERS(v3);
+    return ret;
+}
+
 inline bool operator==(const zero_pad_desc_t &lhs, const zero_pad_desc_t &rhs) {
     bool ret = COMPARE_DESC_MEMBERS(primitive_kind);
     return ret;
@@ -1140,7 +1154,7 @@ inline bool memory_desc_sanity_check(int ndims, const dims_t dims,
 
     bool ok = dims != nullptr && 0 < ndims && ndims <= DNNL_MAX_NDIMS
             && utils::one_of(data_type, f8_e5m2, f8_e4m3, f16, bf16, f32, f64,
-                    s32, s8, u8, s4, u4);
+                    s32, s8, u8, s4, u4, s64);
     if (!ok) return false;
 
     bool has_runtime_dims = false;
@@ -1192,7 +1206,8 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         CASE_OP_DESC(where);
         CASE_OP_DESC(multinormial);
         CASE_OP_DESC(embedding);
-
+        CASE_OP_DESC(tsop);
+        
         // Internal descs
         CASE_OP_DESC(zero_pad);
         default: assert(!"unknown C primitive kind");

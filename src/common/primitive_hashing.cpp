@@ -93,6 +93,7 @@ bool key_t::operator==(const key_t &rhs) const {
             CASE(where)
             CASE(multinormial)
             CASE(embedding)
+            CASE(tsop)
             CASE(zero_pad)
             default: assert(!"unknown primitive kind");
         }
@@ -786,6 +787,21 @@ size_t get_desc_hash(const embedding_desc_t &desc) {
     seed = hash_combine(seed, get_md_hash(desc.dict_desc));
     seed = hash_combine(seed, get_md_hash(desc.dst_desc));
     // Combined hash for softmax desc
+    return seed;
+}
+
+size_t get_desc_hash(const tsop_desc_t &desc) {
+    size_t seed = 0;
+    // Kinds
+    seed = hash_combine(seed, static_cast<size_t>(desc.primitive_kind));
+    seed = hash_combine(seed, static_cast<size_t>(desc.alg_kind));
+    // Memory descriptors
+    seed = hash_combine(seed, get_md_hash(desc.src_desc));
+    seed = hash_combine(seed, get_md_hash(desc.dst_desc));
+    // Scalar Value
+    seed = hash_combine(seed, std::get<0>(desc.v3));
+    seed = hash_combine(seed, std::get<1>(desc.v3));
+    seed = hash_combine(seed, std::get<2>(desc.v3));
     return seed;
 }
 

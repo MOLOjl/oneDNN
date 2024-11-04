@@ -1365,6 +1365,26 @@ dnnl_status_t DNNL_API dnnl_memory_destroy(dnnl_memory_t memory);
 /// @addtogroup dnnl_api_primitives
 /// @{
 
+/// @addtogroup dnnl_api_tsop
+/// @{
+
+/// Creates a primitive descriptor for a tsop primitive.
+///
+/// @param tsop_primitive_desc Output primitive descriptor.
+/// @param src_desc Source memory descriptor.
+/// @param dst_desc Destination memory descriptor.
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_tsop_primitive_desc_create(
+        dnnl_primitive_desc_t *tsop_primitive_desc,
+        dnnl_engine_t engine,
+        dnnl_alg_kind_t alg_kind,
+        const_dnnl_memory_desc_t src_desc,
+        const_dnnl_memory_desc_t dst_desc,
+        double* vd, int64_t* vi, bool* vb);
+
+/// @} dnnl_api_tsop
+
 /// @addtogroup dnnl_api_multinormial
 /// @{
 
