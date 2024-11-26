@@ -320,6 +320,11 @@ enum {
     // even though they are not in alphabetical order
     key_nested,
     key_nested_multiple,
+    key_attn_dropout_states,
+    key_attn_post_dropout_states,
+    key_attn_weight,
+    key_attn_workspace,
+    key_attn_reservespace,
 };
 
 enum {

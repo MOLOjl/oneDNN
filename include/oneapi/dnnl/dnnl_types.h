@@ -2033,6 +2033,8 @@ typedef enum {
     dnnl_layer_normalization,
     /// A group normalization primitive.
     dnnl_group_normalization,
+    // A layer multi-head attention primitive.
+    dnnl_multi_head_attn,
 
     /// Parameter to allow internal only primitives without undefined behavior.
     /// This parameter is chosen to be valid for so long as sizeof(int) >= 2.
@@ -2189,6 +2191,10 @@ typedef enum {
     dnnl_softmax_accurate = 0x30000,
     /// Logsoftmax
     dnnl_softmax_log,
+    /// Multi-Head Attention mode all to one
+    dnnl_attn_querymap_all2one,
+    /// Multi-Head Attention mode one to one
+    dnnl_attn_querymap_one2one,
 } dnnl_alg_kind_t;
 
 /// Flags for normalization primitives.

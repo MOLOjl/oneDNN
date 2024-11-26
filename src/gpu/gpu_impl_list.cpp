@@ -49,6 +49,7 @@ const impl_list_item_t *gpu_impl_list_t::get_implementation_list(
             CASE(shuffle);
             CASE(softmax);
             CASE(zero_pad);
+            CASE(multi_head_attn);
             default: assert(!"unknown primitive kind"); return empty_list;
         }
 #undef CASE

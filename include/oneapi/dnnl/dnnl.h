@@ -3548,6 +3548,27 @@ dnnl_status_t DNNL_API dnnl_reduction_primitive_desc_create(
 
 /// @} dnnl_api_reduction
 
+/// @addtogroup dnnl_api_multi_head_attn Multi-head attention
+/// @{
+
+dnnl_status_t DNNL_API dnnl_multi_head_attn_forward_primitive_desc_create(
+        dnnl_primitive_desc_t *primitive_desc_iface, dnnl_engine_t engine,
+        dnnl_prop_kind_t prop_kind, dnnl_alg_kind_t alg_kind, int num_heads, double softmax_scaler, 
+        const_dnnl_memory_desc_t *devSeqLengthsQO_desc, const_dnnl_memory_desc_t *devSeqLengthsKV_desc, 
+        const_dnnl_memory_desc_t *queries_desc, int* q_axes, int* seqlength_Q, 
+        const_dnnl_memory_desc_t *residuals_desc, const_dnnl_memory_desc_t *keys_desc, int* k_axes, 
+        int* seqlength_K, const_dnnl_memory_desc_t *values_desc, int* v_axes, int* seqlength_V, 
+        const_dnnl_memory_desc_t *out_desc, int* o_axes, int* seqlength_O, 
+        const_dnnl_memory_desc_t *qweight_desc, const_dnnl_memory_desc_t *qbias_desc, 
+        const_dnnl_memory_desc_t *kweight_desc, const_dnnl_memory_desc_t *kbias_desc, 
+        const_dnnl_memory_desc_t *vweight_desc, const_dnnl_memory_desc_t *vbias_desc, 
+        const_dnnl_memory_desc_t *oweight_desc, const_dnnl_memory_desc_t *obias_desc, 
+        int* p_currIdx, int* loWinIdx, int* hiWinIdx, float dropout, float postdropout, 
+        unsigned long long seed, unsigned long long postseed,
+        const_dnnl_primitive_attr_t *attr);
+
+/// @} dnnl_api_multi_head_attn
+
 /// @} dnnl_api_primitives
 
 /// @addtogroup dnnl_api_primitive_cache

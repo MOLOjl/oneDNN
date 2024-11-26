@@ -93,6 +93,7 @@ bool key_t::operator==(const key_t &rhs) const {
             CASE(softmax)
             CASE(sum)
             CASE(zero_pad)
+            CASE(multi_head_attn)
             default: assert(!"unknown primitive kind");
         }
 #undef CASE
@@ -750,6 +751,52 @@ size_t get_desc_hash(const sdpa_desc_t &desc) {
     // Scale type
     seed = hash_combine(seed, static_cast<size_t>(desc.scale_dt));
     seed = hash_combine(seed, desc.invert_scale);
+    // Combined hash for sdpa desc
+    return seed;
+}
+
+
+size_t get_desc_hash(const multi_head_attn_desc_t &desc) {
+    size_t seed = 0;
+    // Kinds
+    seed = hash_combine(seed, static_cast<size_t>(desc.primitive_kind));
+    seed = hash_combine(seed, static_cast<size_t>(desc.prop_kind));
+    seed = hash_combine(seed, static_cast<size_t>(desc.alg_kind));
+    // Memory descriptors
+    seed = hash_combine(seed, get_md_hash(desc.devSeqLengthsQO_desc));
+    seed = hash_combine(seed, get_md_hash(desc.devSeqLengthsKV_desc));
+    seed = hash_combine(seed, get_md_hash(desc.queries_desc));
+    seed = hash_combine(seed, get_md_hash(desc.residuals_desc));
+    seed = hash_combine(seed, get_md_hash(desc.keys_desc));
+    seed = hash_combine(seed, get_md_hash(desc.values_desc));
+    seed = hash_combine(seed, get_md_hash(desc.out_desc));
+    seed = hash_combine(seed, get_md_hash(desc.qweight_desc));
+    seed = hash_combine(seed, get_md_hash(desc.qbias_desc));
+    seed = hash_combine(seed, get_md_hash(desc.kweight_desc));
+    seed = hash_combine(seed, get_md_hash(desc.kbias_desc));
+    seed = hash_combine(seed, get_md_hash(desc.vweight_desc));
+    seed = hash_combine(seed, get_md_hash(desc.vbias_desc));
+    seed = hash_combine(seed, get_md_hash(desc.oweight_desc));
+    seed = hash_combine(seed, get_md_hash(desc.obias_desc));
+    // Pointer type
+    seed = hash_combine(seed, desc.q_axes);
+    seed = hash_combine(seed, desc.seqlength_Q);
+    seed = hash_combine(seed, desc.k_axes);
+    seed = hash_combine(seed, desc.seqlength_K);
+    seed = hash_combine(seed, desc.v_axes);
+    seed = hash_combine(seed, desc.seqlength_V);
+    seed = hash_combine(seed, desc.o_axes);
+    seed = hash_combine(seed, desc.seqlength_O);
+    seed = hash_combine(seed, desc.p_currIdx);
+    seed = hash_combine(seed, desc.loWinIdx);
+    seed = hash_combine(seed, desc.hiWinIdx);
+    // Scalar type
+    seed = hash_combine(seed, desc.num_heads);
+    seed = hash_combine(seed, desc.softmax_scaler);
+    seed = hash_combine(seed, desc.dropout);
+    seed = hash_combine(seed, desc.postdropout);
+    seed = hash_combine(seed, desc.seed);
+    seed = hash_combine(seed, desc.postseed);
     // Combined hash for sdpa desc
     return seed;
 }

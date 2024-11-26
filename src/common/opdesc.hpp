@@ -592,6 +592,49 @@ struct rnn_desc_t {
     float beta;
 };
 
+struct multi_head_attn_desc_t {
+
+    primitive_kind_t primitive_kind;
+    prop_kind_t prop_kind;
+    alg_kind_t alg_kind;
+
+    int num_heads;
+    double softmax_scaler;
+
+    memory_desc_t devSeqLengthsQO_desc;
+    memory_desc_t devSeqLengthsKV_desc;
+    memory_desc_t queries_desc;
+    int* q_axes;
+    int* seqlength_Q;
+    memory_desc_t residuals_desc;
+    memory_desc_t keys_desc;
+    int* k_axes;
+    int* seqlength_K;
+    memory_desc_t values_desc;
+    int* v_axes;
+    int* seqlength_V;
+    memory_desc_t out_desc;
+    int* o_axes;
+    int* seqlength_O;
+    memory_desc_t qweight_desc;
+    memory_desc_t qbias_desc;
+    memory_desc_t kweight_desc;
+    memory_desc_t kbias_desc;
+    memory_desc_t vweight_desc;
+    memory_desc_t vbias_desc;
+    memory_desc_t oweight_desc;
+    memory_desc_t obias_desc;
+
+    int* p_currIdx;
+    int* loWinIdx;
+    int* hiWinIdx;
+
+    float dropout;
+    float postdropout;
+    unsigned long long seed;
+    unsigned long long postseed;
+};
+
 struct op_desc_t {
     union {
         primitive_kind_t kind;
@@ -618,6 +661,7 @@ struct op_desc_t {
         zero_pad_desc_t zero_pad;
         reduction_desc_t reduction;
         sdpa_desc_t sdpa;
+        sdpa_desc_t multi_head_attn;
     };
 
 #define DECL_CTOR_AND_CONVERTERS(c_type) \
@@ -651,6 +695,7 @@ struct op_desc_t {
     DECL_CTOR_AND_CONVERTERS(zero_pad_desc_t);
     DECL_CTOR_AND_CONVERTERS(reduction_desc_t);
     DECL_CTOR_AND_CONVERTERS(sdpa_desc_t);
+    DECL_CTOR_AND_CONVERTERS(multi_head_attn_desc_t);
 
     // concat_desc_t and sum_desc_t have data members which have non-trivial
     // special member functions hence the default destructor is implicitly

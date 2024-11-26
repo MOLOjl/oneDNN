@@ -147,6 +147,8 @@ const alg_kind_t internal_only_start = (alg_kind_t)(1 << 12);
 // GPU only via jit_eltwise injector.
 const alg_kind_t eltwise_stochastic_round
         = (alg_kind_t)(internal_only_start + 1);
+const alg_kind_t attn_querymap_one2one = dnnl_attn_querymap_one2one;
+const alg_kind_t attn_querymap_all2one = dnnl_attn_querymap_all2one;
 } // namespace alg_kind
 
 using data_type_t = dnnl_data_type_t;
@@ -1968,6 +1970,7 @@ const primitive_kind_t reduction = dnnl_reduction;
 const primitive_kind_t softmax = dnnl_softmax;
 const primitive_kind_t layer_normalization = dnnl_layer_normalization;
 const primitive_kind_t group_normalization = dnnl_group_normalization;
+const primitive_kind_t multi_head_attn = dnnl_multi_head_attn;
 
 // Internal only primitive kinds.
 const primitive_kind_t internal_only_start = (primitive_kind_t)(1 << 12);

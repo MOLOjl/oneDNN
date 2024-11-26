@@ -964,6 +964,45 @@ inline bool operator==(const sdpa_desc_t &lhs, const sdpa_desc_t &rhs) {
     return ret;
 }
 
+inline bool operator==(const multi_head_attn_desc_t &lhs, const multi_head_attn_desc_t &rhs) {
+    bool ret = COMPARE_DESC_MEMBERS(primitive_kind)
+            && COMPARE_DESC_MEMBERS(prop_kind)
+            && COMPARE_DESC_MEMBERS(alg_kind)
+            && COMPARE_DESC_MEMBERS(num_heads)
+            && COMPARE_DESC_MEMBERS(softmax_scaler)
+            && COMPARE_DESC_MEMBERS(devSeqLengthsQO_desc)
+            && COMPARE_DESC_MEMBERS(devSeqLengthsKV_desc)
+            && COMPARE_DESC_MEMBERS(queries_desc)
+            && COMPARE_DESC_MEMBERS(q_axes)
+            && COMPARE_DESC_MEMBERS(seqlength_Q)
+            && COMPARE_DESC_MEMBERS(residuals_desc)
+            && COMPARE_DESC_MEMBERS(keys_desc)
+            && COMPARE_DESC_MEMBERS(k_axes)
+            && COMPARE_DESC_MEMBERS(seqlength_K)
+            && COMPARE_DESC_MEMBERS(values_desc)
+            && COMPARE_DESC_MEMBERS(v_axes)
+            && COMPARE_DESC_MEMBERS(seqlength_V)
+            && COMPARE_DESC_MEMBERS(out_desc)
+            && COMPARE_DESC_MEMBERS(o_axes)
+            && COMPARE_DESC_MEMBERS(seqlength_O)
+            && COMPARE_DESC_MEMBERS(qweight_desc)
+            && COMPARE_DESC_MEMBERS(qbias_desc)
+            && COMPARE_DESC_MEMBERS(kweight_desc)
+            && COMPARE_DESC_MEMBERS(kbias_desc)
+            && COMPARE_DESC_MEMBERS(vweight_desc)
+            && COMPARE_DESC_MEMBERS(vbias_desc)
+            && COMPARE_DESC_MEMBERS(oweight_desc)
+            && COMPARE_DESC_MEMBERS(obias_desc)
+            && COMPARE_DESC_MEMBERS(p_currIdx)
+            && COMPARE_DESC_MEMBERS(loWinIdx)
+            && COMPARE_DESC_MEMBERS(hiWinIdx)
+            && COMPARE_DESC_MEMBERS(dropout)
+            && COMPARE_DESC_MEMBERS(postdropout)
+            && COMPARE_DESC_MEMBERS(seed)
+            && COMPARE_DESC_MEMBERS(postseed);
+    return ret;
+}
+
 // clang-format on
 
 #undef COMPARE_DESC_MEMBERS
@@ -1300,7 +1339,8 @@ inline void copy_c_op_desc(op_desc_t *dst, const op_desc_t *src) {
         CASE_OP_DESC(sdpa);
         CASE_OP_DESC(shuffle);
         CASE_OP_DESC(softmax);
-
+        CASE_OP_DESC(multi_head_attn);
+        
         // Internal descs
         CASE_OP_DESC(zero_pad);
         default: assert(!"unknown C primitive kind");

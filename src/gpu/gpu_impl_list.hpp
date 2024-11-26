@@ -177,6 +177,7 @@ DECLARE_IMPL_LIST(sdpa);
 DECLARE_IMPL_LIST(shuffle);
 DECLARE_IMPL_LIST(softmax);
 DECLARE_IMPL_LIST(zero_pad);
+DECLARE_IMPL_LIST(multi_head_attn);
 
 #undef DECLARE_IMPL_LIST
 

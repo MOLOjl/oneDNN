@@ -201,6 +201,13 @@
     { nullptr }
 #endif
 
+#if BUILD_PRIMITIVE_ALL || BUILD_MULTI_HEAD_ATTN
+#define REG_MULTI_HEAD_ATTN_P(...) __VA_ARGS__
+#else
+#define REG_MULTI_HEAD_ATTN_P(...) \
+    { nullptr }
+#endif
+
 // Primitive CPU ISA section is in src/cpu/platform.hpp
 
 #if BUILD_PRIMITIVE_GPU_ISA_ALL || BUILD_GEN9

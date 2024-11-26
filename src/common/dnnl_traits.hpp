@@ -192,6 +192,7 @@ PKIND_TRAITS_INST(resampling);
 PKIND_TRAITS_INST(reduction);
 PKIND_TRAITS_INST(sum);
 PKIND_TRAITS_INST(sdpa);
+PKIND_TRAITS_INST(multi_head_attn);
 #undef PKIND_TRAITS_INST
 
 } // namespace impl
