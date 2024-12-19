@@ -504,6 +504,10 @@ enum class algorithm {
     attn_querymap_all2one,
     /// Multi-Head Attention mode one to one
     attn_querymap_one2one,
+    /// weight gradient add mode
+    attn_wgrad_add,
+    /// weight gradient set mode
+    attn_wgrad_set,
 };
 
 /// Converts algorithm kind enum value from C++ API to C API type.

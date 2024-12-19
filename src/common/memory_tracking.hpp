@@ -323,6 +323,7 @@ enum {
     key_attn_dropout_states,
     key_attn_post_dropout_states,
     key_attn_weight,
+    key_attn_dweight,
     key_attn_workspace,
     key_attn_reservespace,
 };

@@ -41,9 +41,6 @@ struct cudnn_multi_head_attn_fwd_t : public gpu::primitive_t {
 
             auto sycl_dev
                     = utils::downcast<nvidia::engine_t *>(engine)->device();
-
-            bool ok = is_fwd();
-            if (!ok) return status::unimplemented;
             
             multi_head_attn_fwd_impl_.reset(new cudnn_multi_head_attn_fwd_impl_t());
             return multi_head_attn_fwd_impl_->init(engine, this);
@@ -57,55 +54,51 @@ private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
 };
 
-// struct cudnn_multi_head_attn_bwd_data_t : public gpu::primitive_t {
-//     using gpu::primitive_t::primitive_t;
+struct cudnn_multi_head_attn_bwd_data_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
 
-//     struct pd_t : public multi_head_attn_bwd_data_pd_t {
-//         using multi_head_attn_bwd_data_pd_t::multi_head_attn_bwd_data_pd_t;
+    struct pd_t : public multi_head_attn_pd_t {
+        using multi_head_attn_pd_t::multi_head_attn_pd_t;
 
-//         DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_bwd_data_t);
+        DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_bwd_data_t);
 
-//         status_t init(impl::engine_t *) {
-//             using namespace alg_kind;
-//             bool ok = !is_fwd()
-//             if (!ok) return status::unimplemented;
+        status_t init(impl::engine_t * engine) {
+            using namespace alg_kind;
 
-//             multi_head_attn_bwd_data_impl_.reset(new cudnn_multi_head_attn_bwd_data_impl_t());
-//             return multi_head_attn_bwd_data_impl_->init(this);
-//         }
-//         std::shared_ptr<cudnn_multi_head_attn_bwd_data_impl_t> multi_head_attn_bwd_data_impl_;
-//     };
+            multi_head_attn_bwd_data_impl_.reset(new cudnn_multi_head_attn_bwd_data_impl_t());
+            return multi_head_attn_bwd_data_impl_->init(engine, this);
+        }
+        std::shared_ptr<cudnn_multi_head_attn_bwd_data_impl_t> multi_head_attn_bwd_data_impl_;
+    };
 
-//     status_t execute(const exec_ctx_t &ctx) const override;
+    status_t execute(const exec_ctx_t &ctx) const override;
 
-// private:
-//     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
-// };
+private:
+    const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
+};
 
-// struct cudnn_multi_head_attn_bwd_weights_t : public gpu::primitive_t {
-//     using gpu::primitive_t::primitive_t;
+struct cudnn_multi_head_attn_bwd_weights_t : public gpu::primitive_t {
+    using gpu::primitive_t::primitive_t;
 
-//     struct pd_t : public multi_head_attn_bwd_weights_pd_t {
-//         using multi_head_attn_bwd_weights_pd_t::multi_head_attn_bwd_weights_pd_t;
+    struct pd_t : public multi_head_attn_pd_t {
+        using multi_head_attn_pd_t::multi_head_attn_pd_t;
 
-//         DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_bwd_weights_t);
+        DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_bwd_weights_t);
 
-//         status_t init(impl::engine_t *) {
-//             using namespace alg_kind;
-//             bool ok = !is_fwd()
-//             if (!ok) return status::unimplemented;
+        status_t init(impl::engine_t * engine) {
+            using namespace alg_kind;
 
-//             multi_head_attn_bwd_weights_impl_.reset(new cudnn_multi_head_attn_bwd_weights_impl_t());
-//             return multi_head_attn_bwd_weights_impl_->init(this);
-//         }
-//         std::shared_ptr<cudnn_multi_head_attn_bwd_weights_impl_t> multi_head_attn_bwd_weights_impl_;
-//     };
+            multi_head_attn_bwd_weights_impl_.reset(new cudnn_multi_head_attn_bwd_weights_impl_t());
+            return multi_head_attn_bwd_weights_impl_->init(engine, this);
+        }
+        std::shared_ptr<cudnn_multi_head_attn_bwd_weights_impl_t> multi_head_attn_bwd_weights_impl_;
+    };
 
-//     status_t execute(const exec_ctx_t &ctx) const override;
+    status_t execute(const exec_ctx_t &ctx) const override;
 
-// private:
-//     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
-// };
+private:
+    const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
+};
 
 } // namespace nvidia
 } // namespace gpu

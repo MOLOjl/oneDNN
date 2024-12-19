@@ -206,14 +206,102 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
         return desc()->postseed;
     }
 
+    bool addGrad() const {
+        return desc()->wgrad_alg_kind == alg_kind::attn_wgrad_add;
+    }
+
+    void set_attnDesc(void* ad) const {
+        desc_.attnDesc = ad;
+    }
+
+    void* get_attnDesc() const {
+        return desc()->attnDesc;
+    }
+
+    void set_SeqDataDesc(void* seqdatadesc, int idx) const {
+        desc_.SeqDataDescs[idx] = seqdatadesc;
+    }
+
+    void* get_SeqDataDesc(int idx) const {
+        return desc()->SeqDataDescs[idx];
+    }
+
+    void set_weightbias_tdesc(void* wb_tdesc, int idx) const {
+        desc_.weightbias_tdesc[idx] = wb_tdesc;
+    }
+
+    void* get_weightbias_tdesc(int idx) const {
+        return desc()->weightbias_tdesc[idx];
+    }
+
+    void set_weightbias_size(size_t wb_size, int idx) const {
+        desc_.weightbias_size[idx] = wb_size;
+    }
+
+    size_t get_weightbias_size(int idx) const {
+        return desc()->weightbias_size[idx];
+    }
+
+    void set_reserveSpaceSizeInBytes(size_t rs_size) const {
+        desc_.reserveSpaceSizeInBytes = rs_size;
+    }
+
+    size_t get_reserveSpaceSizeInBytes() const {
+        return desc()->reserveSpaceSizeInBytes;
+    }
+
+    void set_workSpaceSizeInBytes(size_t ws_size) const {
+        desc_.workSpaceSizeInBytes = ws_size;
+    }
+
+    size_t get_workSpaceSizeInBytes() const {
+        return desc()->workSpaceSizeInBytes;
+    }
+
+    void set_weightSizeInBytes(size_t ws_size) const {
+        desc_.weightSizeInBytes = ws_size;
+    }
+
+    size_t get_weightSizeInBytes() const {
+        return desc()->weightSizeInBytes;
+    }
+
+    void set_weightspace(void* ws_p) const {
+        desc_.weightspace = ws_p;
+    }
+
+    void* get_weightspace() const {
+        return desc()->weightspace;
+    }
+
+    void set_workspace(void* ws_p) const {
+        desc_.workspace = ws_p;
+    }
+
+    void* get_workspace() const {
+        return desc()->workspace;
+    }
+    
+    void set_reservespace(void* rs_p) const {
+        desc_.reservespace = rs_p;
+    }
+
+    void* get_reservespace() const {
+        return desc()->reservespace;
+    }
+
 protected:
-    multi_head_attn_desc_t desc_;
+    mutable multi_head_attn_desc_t desc_;
 
     multi_head_attn_pd_t(const multi_head_attn_desc_t *adesc,
             const primitive_attr_t *attr,
             const multi_head_attn_pd_t *hint_fwd_pd)
-        : primitive_desc_t(attr, base_pkind)
-        , desc_(*adesc) {}
+        : primitive_desc_t(attr, base_pkind) {
+            if(hint_fwd_pd)
+                desc_ = *(hint_fwd_pd->desc());
+            else
+                desc_ = *adesc;
+        }
 };
 
 } // namespace impl

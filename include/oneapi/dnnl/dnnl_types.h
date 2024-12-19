@@ -2195,6 +2195,10 @@ typedef enum {
     dnnl_attn_querymap_all2one,
     /// Multi-Head Attention mode one to one
     dnnl_attn_querymap_one2one,
+    /// weight gradient add mode
+    dnnl_attn_wgrad_add,
+    /// weight gradient set mode
+    dnnl_attn_wgrad_set,
 } dnnl_alg_kind_t;
 
 /// Flags for normalization primitives.

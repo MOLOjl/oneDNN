@@ -41,77 +41,38 @@ namespace nvidia {
 
 struct cudnn_multi_head_attn_impl_base_t {
 protected:
-    cudnnAttnDescriptor_t attnDesc;
-	cudnnDropoutDescriptor_t attnDropoutDesc;
-	cudnnDropoutDescriptor_t postDropoutDesc;
-
-	unsigned attnMode;
-	// Compute precision.
-    cudnnDataType_t computePrec = CUDNN_DATA_FLOAT;
-	// NVIDIA Tensor Core settings.
-    cudnnMathType_t mathType = CUDNN_DEFAULT_MATH;
-	
 	enum io { q = 0, k, v, o, NUM_IO };
 
+    cudnnAttnDescriptor_t attnDesc;
     cudnnSeqDataDescriptor_t SeqDataDescs[NUM_IO];
-    cudnnTensorDescriptor_t weightbias_tdesc[8]; // 4 weight and 4 bias.
-    bool proj_disabled[8];   // whether the projection is disabled.
-
-	memory_desc_t dnnl_descs[NUM_IO];
-	// memory_desc_t weight_desc;
-
-    size_t wSize[8];
-    mutable void* wAddr[8];
-
-	cudnnDataType_t data_types[NUM_IO];
-	cudnnDataType_t weight_type;
+    cudnnTensorDescriptor_t weightbias_tdesc[8];    // 4 weight and 4 bias.
+    size_t weightbias_size[8];
 
 	size_t reserveSpaceSizeInBytes;
 	size_t workSpaceSizeInBytes;
 	size_t weightSizeInBytes;
 	size_t Dropout_stateSize;
 
-	int dimA[NUM_IO][CUDNN_SEQDATA_DIM_COUNT];  // CUDNN_SEQDATA_DIM_COUNT equals to 4.
-    // indicate that the layout of qkvo tensor(seqdata). {0, 1, 2, 3} means plain layout.
-	int axes[NUM_IO][CUDNN_SEQDATA_DIM_COUNT];
-
-    // sla_size equals to dimA[CUDNN_SEQDATA_BATCH_DIM] * dimA[CUDNN_SEQDATA_BEAM_DIM]
-    size_t seqlentharray_sizes[NUM_IO];
-    std::vector<int> seqlenthArray[NUM_IO];
-
-    int maxseqlength_qo;
-    int maxseqlength_kv;
-    int maxbatchsize;
-    int maxbeamsize;
-
-	int nHeads;
-	double smScaler;
-
-    int size_QKVO[NUM_IO];
-    // If projsize is set to 0, it means the coresponding project is disabled.
-    int projsize_QKVO[NUM_IO];
-
-    size_t weightbias_totalsize = 0;
+    void* weightspace;
+    void* workspace;
+    void* reservespace;
 
     // these 3 pointers shall not be freed during the lifecycle of this primitive.
-    const int* p_currIdx;
+    const int* p_currIdx;   // Only used in forward.
     const int* loWinIdx;
     const int* hiWinIdx;
 
-    float attndropout;
-    float postattndropout;
-    unsigned long long dropoutseed;
-    unsigned long long postdropoutseed;
+    bool is_fwd;
+    bool is_bwd_data;
+    bool is_bwd_weight;
 public:
     virtual ~cudnn_multi_head_attn_impl_base_t() {
 		CUDNN_EXECUTE_FUNC_V(cudnnDestroyAttnDescriptor, attnDesc);
-		CUDNN_EXECUTE_FUNC_V(cudnnDestroyDropoutDescriptor, attnDropoutDesc);
-		CUDNN_EXECUTE_FUNC_V(cudnnDestroyDropoutDescriptor, postDropoutDesc);
         for (size_t i = 0; i < io::NUM_IO; i++) {
 			CUDNN_EXECUTE_FUNC_V(cudnnDestroySeqDataDescriptor,  SeqDataDescs[i]);
         }
         for(size_t i = 0; i<8; i++) {
-            if(!proj_disabled[i])
+            if(weightbias_tdesc[i] != nullptr)
                 CUDNN_EXECUTE_FUNC_V(cudnnDestroyTensorDescriptor, weightbias_tdesc[i]);
         }
     }
@@ -122,15 +83,72 @@ public:
 	bool with_scratchpad() const { return true; } 
 
     virtual status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) {
+        is_fwd = pd->is_fwd();
+        is_bwd_data = pd->is_bwd_d();
+        is_bwd_weight = pd->is_bwd_w();
+
+        return status::success;
+    }
+
+    virtual void execute(
+            cudnnHandle_t handle, const std::vector<void *> &args) const = 0;
+};
+
+struct cudnn_multi_head_attn_fwd_impl_t : public cudnn_multi_head_attn_impl_base_t {
+protected:
+	cudnnDropoutDescriptor_t attnDropoutDesc;
+	cudnnDropoutDescriptor_t postDropoutDesc;
+	
+    unsigned attnMode;
+	// Compute precision.
+    cudnnDataType_t computePrec = CUDNN_DATA_FLOAT;
+	// NVIDIA Tensor Core settings.
+    cudnnMathType_t mathType = CUDNN_DEFAULT_MATH;
+
+    memory_desc_t dnnl_descs[NUM_IO];
+
+	cudnnDataType_t data_types[NUM_IO];
+	cudnnDataType_t weight_type;
+
+    // CUDNN_SEQDATA_DIM_COUNT equals to 4.
+	int dimA[NUM_IO][CUDNN_SEQDATA_DIM_COUNT];  
+    // indicate that the layout of qkvo tensor(seqdata). {0, 1, 2, 3} means plain layout.
+	int axes[NUM_IO][CUDNN_SEQDATA_DIM_COUNT];
+    // sla_size equals to dimA[CUDNN_SEQDATA_BATCH_DIM] * dimA[CUDNN_SEQDATA_BEAM_DIM]
+    size_t seqlentharray_sizes[NUM_IO];
+    int* seqlenth_qkvo[NUM_IO];
+    // std::vector<int> seqlenthArray[NUM_IO];
+
+    int maxseqlength_qo;
+    int maxseqlength_kv;
+    int maxbatchsize;
+    int maxbeamsize;
+
+    int size_QKVO[NUM_IO];
+    // If projsize is set to 0, it means the coresponding project is disabled.
+    int projsize_QKVO[NUM_IO];
+
+    int nHeads;
+	double smScaler;
+
+    float attndropout;
+    float postattndropout;
+    unsigned long long dropoutseed;
+    unsigned long long postdropoutseed;
+public:
+    virtual ~cudnn_multi_head_attn_fwd_impl_t() {
+		CUDNN_EXECUTE_FUNC_V(cudnnDestroyDropoutDescriptor, attnDropoutDesc);
+		CUDNN_EXECUTE_FUNC_V(cudnnDestroyDropoutDescriptor, postDropoutDesc);
+    }
+
+    status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
+        CHECK(cudnn_multi_head_attn_impl_base_t::init(engine, pd));
+
         CHECK(check_proj_weight(pd));
         CHECK(configure_parameters(pd));
         CHECK(create_cudnn_descs(engine, pd));
         CHECK(init_scratchpad(engine, pd));
 
-        return status::success;
-    }
-
-    virtual status_t init_zero_dims(multi_head_attn_pd_t *pd) {
         return status::success;
     }
 
@@ -145,26 +163,20 @@ public:
 		return status::success;
 	}
 
-    void get_seqlenth_utils(io idx, int* seqlenarray, int* maxseqlengh = nullptr){
+    // Traverse seqlenarray to get maxseqlengh.
+    inline void get_max_seqlenth(io idx, int* seqlenarray, int* maxseqlengh){
         int arraylenth = seqlentharray_sizes[idx];
-        seqlenthArray[idx].resize(arraylenth);
-        if(maxseqlengh == nullptr){
-            for(int i=0; i<arraylenth; i++)
-                seqlenthArray[idx][i] = seqlenarray[i];
-        }
-        else {
-            *maxseqlengh = 0;
-            for(int i=0; i<arraylenth; i++){
-                if(seqlenarray[i] > *maxseqlengh)
-                    *maxseqlengh = seqlenarray[i];
-                seqlenthArray[idx][i] = seqlenarray[i];
-            }
+        *maxseqlengh = 0;
+        for(int i=0; i<arraylenth; i++){
+            if(seqlenarray[i] > *maxseqlengh)
+                *maxseqlengh = seqlenarray[i];
         }
     }
 
+    // Will set weightbias_size and weightbias_tdesc of pd, which will be used in backward.
     status_t check_proj_weight(const multi_head_attn_pd_t* pd){
         for(int i=0; i<8; i++){
-            auto wb_md = *pd->weight_md(i);
+            auto wb_md = *(pd->weight_md(i));
             // check weight or bias data type.
             cudnnDataType_t wb_dt;
             CHECK(convert_data_type(&wb_md, &wb_dt));
@@ -186,11 +198,12 @@ public:
 
             // It means this weight/bias is disabled.
             if(dimA_wb[1] == 0) {
-                proj_disabled[i] = true;
+                weightbias_tdesc[i] = nullptr;
+                pd->set_weightbias_tdesc(nullptr, i);
+                pd->set_weightbias_size(0, i);
                 continue;
             }
 
-            proj_disabled[i] = false;
             strideA_wb[1] = dimA_wb[2];
             strideA_wb[0] = dimA_wb[1] * dimA_wb[2];
             
@@ -198,7 +211,10 @@ public:
             CUDNN_EXECUTE_FUNC_V(cudnnSetTensorNdDescriptor, weightbias_tdesc[i], weight_type, 3, dimA_wb, strideA_wb);
             
             auto data_size = types::data_type_size(wb_md.data_type);
-            wSize[i] = data_size*dimA_wb[0]*dimA_wb[1]*dimA_wb[2];
+            weightbias_size[i] = data_size*dimA_wb[0]*dimA_wb[1]*dimA_wb[2];
+
+            pd->set_weightbias_size(weightbias_size[i], i);
+            pd->set_weightbias_tdesc((void*)(weightbias_tdesc[i]), i);
         }
         return status::success;
     }
@@ -237,7 +253,7 @@ public:
         maxbeamsize = 0;
 		// qkv size equals to dimA[CUDNN_SEQDATA_VECT_DIM]
         for(int i=0; i<NUM_IO; i++) {
-            // qkv project size
+            // qkv project size, weights dimension must be [nHeads, projected size, original size].
             if(pd->weight_md(i) != nullptr)
                 projsize_QKVO[i] = pd->weight_md(i)->dims[1];
             else
@@ -266,15 +282,13 @@ public:
         }
 
         // seqlength, probably all aligned.
-        int* sl_q = pd->seqlength_Q();
-        int* sl_k = pd->seqlength_K();
-        int* sl_v = pd->seqlength_V();
-        int* sl_o = pd->seqlength_O();
+        seqlenth_qkvo[io::q] = pd->seqlength_Q();
+        seqlenth_qkvo[io::k] = pd->seqlength_K();
+        seqlenth_qkvo[io::v] = pd->seqlength_V();
+        seqlenth_qkvo[io::o] = pd->seqlength_O();
 
-        get_seqlenth_utils(io::q, sl_q, &maxseqlength_qo);
-        get_seqlenth_utils(io::k, sl_k, &maxseqlength_kv);
-        get_seqlenth_utils(io::v, sl_v);
-        get_seqlenth_utils(io::o, sl_o);
+        get_max_seqlenth(io::q, seqlenth_qkvo[io::q], &maxseqlength_qo);
+        get_max_seqlenth(io::k, seqlenth_qkvo[io::k], &maxseqlength_kv);
 
         p_currIdx = pd->currIdx();
         loWinIdx = pd->loWinIdxArray();
@@ -288,6 +302,7 @@ public:
         return status::success;
     }
 
+    // Will set attnDesc and SeqDataDescs of pd, which will be used in backward.
     status_t create_cudnn_descs(impl::engine_t *engine, const multi_head_attn_pd_t *pd) {
         auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(engine);
         impl::stream_t *service_stream;
@@ -297,8 +312,8 @@ public:
         auto handle = cuda_stream->get_cudnn_handle();
 
 		// dropout descriptor
-		// since we didn't got the state storage here, 
-		// DropoutDescriptor will be set when this primitive is executed.
+		// since we didn't got the state storage here, DropoutDescriptor will be set when 
+        // this primitive is executed, here we just bind it to attnDesc.
 		CUDNN_EXECUTE_FUNC_V(cudnnCreateDropoutDescriptor, &attnDropoutDesc);
 		CUDNN_EXECUTE_FUNC_V(cudnnCreateDropoutDescriptor, &postDropoutDesc);
 		CUDNN_EXECUTE_FUNC_V(cudnnDropoutGetStatesSize, handle, &Dropout_stateSize);
@@ -313,16 +328,19 @@ public:
         for(int i=0; i<NUM_IO; i++) {
             CUDNN_EXECUTE_FUNC_V(cudnnCreateSeqDataDescriptor, &SeqDataDescs[i]);
             CUDNN_EXECUTE_FUNC_V(cudnnSetSeqDataDescriptor, SeqDataDescs[i], data_types[i], 
-                    CUDNN_SEQDATA_DIM_COUNT, dimA[i], (cudnnSeqDataAxis_t*)(axes[i]), seqlentharray_sizes[i],
-                    seqlenthArray[i].data(), NULL);
+                    CUDNN_SEQDATA_DIM_COUNT, dimA[i], (cudnnSeqDataAxis_t*)(axes[i]), 
+                    seqlentharray_sizes[i], seqlenth_qkvo[i], NULL);
+            
+            pd->set_SeqDataDesc((void*)(SeqDataDescs[i]), i);
         }
 
+        pd->set_attnDesc((void*)attnDesc);
         return status::success;
     }
 
-    virtual status_t init_scratchpad(
-            impl::engine_t *engine, multi_head_attn_pd_t *pd) {
-        
+    // Buffers will still be used in backward, which is different from other primitives.
+    // Will set buffer pointers and size of pd, which will be used in backward.
+    status_t init_scratchpad(impl::engine_t *engine, multi_head_attn_pd_t *pd) {        
         auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(engine);
         impl::stream_t *service_stream;
         CHECK(sycl_engine.get_service_stream(service_stream));
@@ -334,15 +352,16 @@ public:
                 &weightSizeInBytes, &workSpaceSizeInBytes, &reserveSpaceSizeInBytes);
         
         // buffers
-        if(weightSizeInBytes > 0)
+        if(weightSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_weight, weightSizeInBytes,
                     size_t(1));
-        if(workSpaceSizeInBytes > 0)
+
+        if(workSpaceSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_workspace, workSpaceSizeInBytes,
                     size_t(1));
-        if(reserveSpaceSizeInBytes > 0)
+        if(reserveSpaceSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_reservespace, reserveSpaceSizeInBytes,
                     size_t(1));
@@ -354,19 +373,15 @@ public:
                     Dropout_stateSize, size_t(1));
 			pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_post_dropout_states,
-                    Dropout_stateSize, size_t(1));	
+                    Dropout_stateSize, size_t(1));
 		}
 
+        pd->set_weightSizeInBytes(weightSizeInBytes);
+        pd->set_workSpaceSizeInBytes(workSpaceSizeInBytes);
+        pd->set_reserveSpaceSizeInBytes(reserveSpaceSizeInBytes);
+        
         return status::success;
-    };
-
-    virtual void execute(
-            cudnnHandle_t handle, const std::vector<void *> &args) const = 0;
-};
-
-struct cudnn_multi_head_attn_fwd_impl_t : public cudnn_multi_head_attn_impl_base_t {
-public:
-    // virtual ~cudnn_multi_head_attn_impl_fwd_t() {}
+    }
 
     void execute(cudnnHandle_t handle, const std::vector<void *> &args) const override {
         auto devSeqLengthsQO = args[0], devSeqLengthsKV = args[1],
@@ -375,7 +390,7 @@ public:
         
         void* weightbias[8];
         for(int i=7; i<7+8; i++)
-            weightbias[i-4] = args[i];
+            weightbias[i-7] = args[i];
         // buffers
         void* weightspace = args[15];
         void* workspace = args[16];
@@ -392,16 +407,15 @@ public:
                 postdropoutseed);
 
         // copy to weight buffer
+        void* wAddr[8];
         for(int i=0; i<8; i++) {
-            if(!proj_disabled[i]){
+            if(weightbias_tdesc[i] != nullptr){
                 CUDNN_EXECUTE_FUNC_V(cudnnGetMultiHeadAttnWeights, handle, attnDesc, 
                         cudnnMultiHeadAttnWeightKind_t(i), weightSizeInBytes, 
                         weightspace, weightbias_tdesc[i], wAddr + i);
 
                 CUDA_EXECUTE_FUNC(cuMemcpy, (CUdeviceptr)(wAddr[i]),
-                        (CUdeviceptr)(weightbias[i]), wSize[i]);
-                // CUDA_EXECUTE_FUNC(cudaMemcpy, wAddr[i], weightbias[i], 
-                //         wSize[i], cudaMemcpyDeviceToDevice);
+                        (CUdeviceptr)(weightbias[i]), weightbias_size[i]);
             }
         }
 
@@ -411,6 +425,135 @@ public:
                 queries, residuals, SeqDataDescs[io::k], keys, SeqDataDescs[io::v], values,
                 SeqDataDescs[io::o], out, weightSizeInBytes, weightspace, workSpaceSizeInBytes,
                 workspace, reserveSpaceSizeInBytes, reservespace);
+    }
+};
+
+struct cudnn_multi_head_attn_bwd_data_impl_t : public cudnn_multi_head_attn_impl_base_t {
+public:
+    // virtual ~cudnn_multi_head_attn_impl_bwd_data_t() {}
+
+    status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
+        CHECK(cudnn_multi_head_attn_impl_base_t::init(engine, pd));
+        CHECK(get_fwd_parameters(pd));
+
+        return status::success;
+    }
+
+    status_t get_fwd_parameters(multi_head_attn_pd_t *pd) {
+        attnDesc = (cudnnAttnDescriptor_t)(pd->get_attnDesc());
+        for(int i=0; i<NUM_IO; i++)
+            SeqDataDescs[i] = (cudnnSeqDataDescriptor_t)(pd->get_SeqDataDesc(i));
+        for(int i=0; i<8; i++){
+            weightbias_tdesc[i] = (cudnnTensorDescriptor_t)(pd->get_weightbias_tdesc(i));
+            weightbias_size[i] = pd->get_weightbias_size(i);
+        }
+            
+        reserveSpaceSizeInBytes = pd->get_reserveSpaceSizeInBytes();
+        workSpaceSizeInBytes = pd->get_workSpaceSizeInBytes();
+        weightSizeInBytes = pd->get_weightSizeInBytes();
+        weightspace = pd->get_weightspace();
+        workspace = pd->get_workspace();
+        reservespace = pd->get_reservespace();
+
+        loWinIdx = pd->loWinIdxArray();
+        hiWinIdx = pd->hiWinIdxArray();
+
+        return status::success;
+    }
+
+    // We assume the corresponding forward is already finished before the backward call.
+    void execute(cudnnHandle_t handle, const std::vector<void *> &args) const override {
+        auto devSeqLengthsQO = args[0], devSeqLengthsKV = args[1],
+                dout = args[2], dqueries = args[3], queries = args[4], 
+                dkeys = args[5], keys = args[6], dvalues = args[7],
+                values = args[8];
+
+        // attnDesc, loWinIdx, hiWinIdx, SeqDataDescs, weightSizeInBytes, weightspace
+        // workSpaceSizeInBytes, workspace, reserveSpaceSizeInBytes, reservespace
+        
+        // backward data
+        CUDNN_EXECUTE_FUNC_V(cudnnMultiHeadAttnBackwardData, handle, attnDesc, loWinIdx, 
+                hiWinIdx, (int*)devSeqLengthsQO, (int*)devSeqLengthsKV, SeqDataDescs[io::o],
+                dout, SeqDataDescs[io::q], dqueries, queries, SeqDataDescs[io::k], dkeys,
+                keys, SeqDataDescs[io::v], dvalues, values, weightSizeInBytes, weightspace,
+                workSpaceSizeInBytes, workspace, reserveSpaceSizeInBytes, reservespace);
+    }
+};
+
+struct cudnn_multi_head_attn_bwd_weights_impl_t : public cudnn_multi_head_attn_impl_base_t {
+protected:
+    cudnnWgradMode_t addGrad;
+public:
+    // virtual ~cudnn_multi_head_attn_impl_bwd_weights_t() {}
+    
+    status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
+        addGrad = pd->addGrad() ? CUDNN_WGRAD_MODE_ADD : CUDNN_WGRAD_MODE_SET;
+        CHECK(cudnn_multi_head_attn_impl_base_t::init(engine, pd));
+        CHECK(init_scratchpad(pd));
+        CHECK(get_fwd_parameters(pd));
+
+        return status::success;
+    }
+
+    // Init dweight buffer.
+    status_t init_scratchpad(multi_head_attn_pd_t *pd) {
+        // dweight buffer
+        if(weightSizeInBytes > 0 && is_fwd)
+            pd->scratchpad_registry().registrar().book(
+                    memory_tracking::names::key_attn_dweight, weightSizeInBytes,
+                    size_t(1));
+        return status::success;
+    }
+
+    status_t get_fwd_parameters(multi_head_attn_pd_t *pd) {
+        attnDesc = (cudnnAttnDescriptor_t)(pd->get_attnDesc());
+        for(int i=0; i<NUM_IO; i++)
+            SeqDataDescs[i] = (cudnnSeqDataDescriptor_t)(pd->get_SeqDataDesc(i));
+        for(int i=0; i<8; i++){
+            weightbias_tdesc[i] = (cudnnTensorDescriptor_t)(pd->get_weightbias_tdesc(i));
+            weightbias_size[i] = pd->get_weightbias_size(i);
+        }
+            
+        reserveSpaceSizeInBytes = pd->get_reserveSpaceSizeInBytes();
+        workSpaceSizeInBytes = pd->get_workSpaceSizeInBytes();
+        weightSizeInBytes = pd->get_weightSizeInBytes();
+        weightspace = pd->get_weightspace();
+        workspace = pd->get_workspace();
+        reservespace = pd->get_reservespace();
+
+        loWinIdx = pd->loWinIdxArray();
+        hiWinIdx = pd->hiWinIdxArray();
+
+        return status::success;
+    }
+
+    // We assume the corresponding forward is already finished before the backward call.
+    void execute(cudnnHandle_t handle, const std::vector<void *> &args) const override {
+        auto queries = args[0], keys = args[1], values = args[2], 
+                dout = args[3], dweights = args[4];
+        
+        void* dweightbias[8];
+        for(int i=5; i<5+8; i++)
+            dweightbias[i-5] = args[i];
+
+        // backward weight
+        CUDNN_EXECUTE_FUNC_V(cudnnMultiHeadAttnBackwardWeights, handle, attnDesc, addGrad,
+                SeqDataDescs[io::q], queries, SeqDataDescs[io::k], keys, SeqDataDescs[io::v],
+                values, SeqDataDescs[io::o], dout, weightSizeInBytes, weightspace, dweights,
+                workSpaceSizeInBytes, workspace, reserveSpaceSizeInBytes, reservespace);
+        
+        // copy dweight buffer to dweight
+        void* dwAddr[8];
+        for(int i=0; i<8; i++) {
+            if(weightbias_tdesc[i] != nullptr){
+                CUDNN_EXECUTE_FUNC_V(cudnnGetMultiHeadAttnWeights, handle, attnDesc, 
+                        cudnnMultiHeadAttnWeightKind_t(i), weightSizeInBytes, 
+                        dweights, weightbias_tdesc[i], dwAddr + i);
+
+                CUDA_EXECUTE_FUNC(cuMemcpy, (CUdeviceptr)(dweightbias[i]), 
+                        (CUdeviceptr)(dwAddr[i]), weightbias_size[i]);
+            }
+        }
     }
 };
 

@@ -189,6 +189,7 @@ void maulti_head_attn_example(dnnl::engine::kind engine_kind) {
 
     // Read data from memory object's handle.
     read_from_dnnl_memory(output_data.data(), output_mem);
+    free(seqlength_QKVO);
 }
 
 int main(int argc, char **argv) {

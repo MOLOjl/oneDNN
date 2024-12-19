@@ -593,10 +593,10 @@ struct rnn_desc_t {
 };
 
 struct multi_head_attn_desc_t {
-
     primitive_kind_t primitive_kind;
     prop_kind_t prop_kind;
     alg_kind_t alg_kind;
+    alg_kind_t wgrad_alg_kind;
 
     int num_heads;
     double softmax_scaler;
@@ -633,6 +633,24 @@ struct multi_head_attn_desc_t {
     float postdropout;
     unsigned long long seed;
     unsigned long long postseed;
+
+    // Will be wrote after init.
+    // cudnnAttnDescriptor_t
+    void* attnDesc;
+    // cudnnSeqDataDescriptor_t of qkvo
+    void* SeqDataDescs[4]; 
+    // cudnnTensorDescriptor_t of 4 weight and 4 bias.
+    void* weightbias_tdesc[8];
+    // Size of 4 weight and 4 bias.
+    size_t weightbias_size[8];
+
+	size_t reserveSpaceSizeInBytes;
+	size_t workSpaceSizeInBytes;
+	size_t weightSizeInBytes;
+
+    void* weightspace;
+    void* workspace;
+    void* reservespace;
 };
 
 struct op_desc_t {

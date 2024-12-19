@@ -149,6 +149,8 @@ const alg_kind_t eltwise_stochastic_round
         = (alg_kind_t)(internal_only_start + 1);
 const alg_kind_t attn_querymap_one2one = dnnl_attn_querymap_one2one;
 const alg_kind_t attn_querymap_all2one = dnnl_attn_querymap_all2one;
+const alg_kind_t attn_wgrad_add = dnnl_attn_wgrad_add;
+const alg_kind_t attn_wgrad_set = dnnl_attn_wgrad_set;
 } // namespace alg_kind
 
 using data_type_t = dnnl_data_type_t;
