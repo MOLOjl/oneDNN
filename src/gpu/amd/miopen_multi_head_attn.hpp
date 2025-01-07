@@ -15,37 +15,37 @@
 * limitations under the License.
 *******************************************************************************/
 
-#ifndef GPU_NVIDIA_CUDNN_MULTI_HEAD_ATTN_HPP
-#define GPU_NVIDIA_CUDNN_MULTI_HEAD_ATTN_HPP
+#ifndef GPU_AMD_MIOPEN_MULTI_HEAD_ATTN_HPP
+#define GPU_AMD_MIOPEN_MULTI_HEAD_ATTN_HPP
 
 #include "common/multi_head_attn_pd.hpp"
 #include "gpu/gpu_primitive.hpp"
-#include "gpu/nvidia/cudnn_multi_head_attn_impl.hpp"
-#include "gpu/nvidia/engine.hpp"
+#include "gpu/amd/miopen_multi_head_attn_impl.hpp"
+#include "gpu/amd/engine.hpp"
 
 namespace dnnl {
 namespace impl {
 namespace gpu {
-namespace nvidia {
+namespace amd {
 
-struct cudnn_multi_head_attn_fwd_t : public gpu::primitive_t {
+struct miopen_multi_head_attn_fwd_t : public gpu::primitive_t {
     using gpu::primitive_t::primitive_t;
 
     struct pd_t : public multi_head_attn_pd_t {
         using multi_head_attn_pd_t::multi_head_attn_pd_t;
 
-        DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_fwd_t);
+        DECLARE_COMMON_PD_T("hip:miopen:any", miopen_multi_head_attn_fwd_t);
 
         status_t init(impl::engine_t *engine) {
             using namespace alg_kind;
 
             auto sycl_dev
-                    = utils::downcast<nvidia::engine_t *>(engine)->device();
+                    = utils::downcast<amd::engine_t *>(engine)->device();
             
-            multi_head_attn_fwd_impl_.reset(new cudnn_multi_head_attn_fwd_impl_t());
+            multi_head_attn_fwd_impl_.reset(new miopen_multi_head_attn_fwd_impl_t());
             return multi_head_attn_fwd_impl_->init(engine, this);
         }
-        std::shared_ptr<cudnn_multi_head_attn_fwd_impl_t> multi_head_attn_fwd_impl_;
+        std::shared_ptr<miopen_multi_head_attn_fwd_impl_t> multi_head_attn_fwd_impl_;
     };
 
     status_t execute(const exec_ctx_t &ctx) const override;
@@ -54,21 +54,21 @@ private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
 };
 
-struct cudnn_multi_head_attn_bwd_data_t : public gpu::primitive_t {
+struct miopen_multi_head_attn_bwd_data_t : public gpu::primitive_t {
     using gpu::primitive_t::primitive_t;
 
     struct pd_t : public multi_head_attn_pd_t {
         using multi_head_attn_pd_t::multi_head_attn_pd_t;
 
-        DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_bwd_data_t);
+        DECLARE_COMMON_PD_T("hip:miopen:any", miopen_multi_head_attn_bwd_data_t);
 
         status_t init(impl::engine_t * engine) {
             using namespace alg_kind;
 
-            multi_head_attn_bwd_data_impl_.reset(new cudnn_multi_head_attn_bwd_data_impl_t());
+            multi_head_attn_bwd_data_impl_.reset(new miopen_multi_head_attn_bwd_data_impl_t());
             return multi_head_attn_bwd_data_impl_->init(engine, this);
         }
-        std::shared_ptr<cudnn_multi_head_attn_bwd_data_impl_t> multi_head_attn_bwd_data_impl_;
+        std::shared_ptr<miopen_multi_head_attn_bwd_data_impl_t> multi_head_attn_bwd_data_impl_;
     };
 
     status_t execute(const exec_ctx_t &ctx) const override;
@@ -77,21 +77,21 @@ private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
 };
 
-struct cudnn_multi_head_attn_bwd_weights_t : public gpu::primitive_t {
+struct miopen_multi_head_attn_bwd_weights_t : public gpu::primitive_t {
     using gpu::primitive_t::primitive_t;
 
     struct pd_t : public multi_head_attn_pd_t {
         using multi_head_attn_pd_t::multi_head_attn_pd_t;
 
-        DECLARE_COMMON_PD_T("cuda:cudnn:any", cudnn_multi_head_attn_bwd_weights_t);
+        DECLARE_COMMON_PD_T("hip:miopen:any", miopen_multi_head_attn_bwd_weights_t);
 
         status_t init(impl::engine_t * engine) {
             using namespace alg_kind;
 
-            multi_head_attn_bwd_weights_impl_.reset(new cudnn_multi_head_attn_bwd_weights_impl_t());
+            multi_head_attn_bwd_weights_impl_.reset(new miopen_multi_head_attn_bwd_weights_impl_t());
             return multi_head_attn_bwd_weights_impl_->init(engine, this);
         }
-        std::shared_ptr<cudnn_multi_head_attn_bwd_weights_impl_t> multi_head_attn_bwd_weights_impl_;
+        std::shared_ptr<miopen_multi_head_attn_bwd_weights_impl_t> multi_head_attn_bwd_weights_impl_;
     };
 
     status_t execute(const exec_ctx_t &ctx) const override;
@@ -100,7 +100,7 @@ private:
     const pd_t *pd() const { return (const pd_t *)primitive_t::pd().get(); }
 };
 
-} // namespace nvidia
+} // namespace amd
 } // namespace gpu
 } // namespace impl
 } // namespace dnnl

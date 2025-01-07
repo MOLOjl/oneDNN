@@ -290,6 +290,30 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
         return desc()->reservespace;
     }
 
+    void set_offsets(size_t* offsets_) const {
+        for(int i=0; i<31; i++)
+            desc_.offsets[i] = offsets_[i];
+    }
+
+    size_t* get_offsets() const {
+        return desc()->offsets;
+    }
+
+    void set_dropDesc(int idx, void* DropoutDesc) {
+        if(idx == 0)
+            desc_.attnDropoutDesc = DropoutDesc;
+        if(idx == 1)
+            desc_.postDropoutDesc = DropoutDesc;
+    }
+
+    void* get_dropDesc(int idx) {
+        if(idx == 0)
+            return desc()->attnDropoutDesc;
+        if(idx == 1)
+            return desc()->postDropoutDesc;
+        return nullptr;
+    }
+
 protected:
     mutable multi_head_attn_desc_t desc_;
 
@@ -308,5 +332,3 @@ protected:
 } // namespace dnnl
 
 #endif
-
-// vim: et ts=4 sw=4 cindent cino+=l0,\:4,N-s

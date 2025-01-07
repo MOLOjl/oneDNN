@@ -326,6 +326,7 @@ enum {
     key_attn_dweight,
     key_attn_workspace,
     key_attn_reservespace,
+    key_attn_reduce,
 };
 
 enum {

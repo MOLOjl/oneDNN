@@ -26,6 +26,7 @@ namespace dnnl {
 namespace impl {
 namespace gpu {
 
+// forward and backward use one pd.
 struct gpu_multi_head_attn_pd_t : public multi_head_attn_pd_t {
     using multi_head_attn_pd_t::multi_head_attn_pd_t;
 };

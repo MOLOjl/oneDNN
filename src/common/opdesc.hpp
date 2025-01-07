@@ -604,18 +604,18 @@ struct multi_head_attn_desc_t {
     memory_desc_t devSeqLengthsQO_desc;
     memory_desc_t devSeqLengthsKV_desc;
     memory_desc_t queries_desc;
-    int* q_axes;
-    int* seqlength_Q;
+    int* q_axes = nullptr;
+    int* seqlength_Q = nullptr;
     memory_desc_t residuals_desc;
     memory_desc_t keys_desc;
-    int* k_axes;
-    int* seqlength_K;
+    int* k_axes = nullptr;
+    int* seqlength_K = nullptr;
     memory_desc_t values_desc;
-    int* v_axes;
-    int* seqlength_V;
+    int* v_axes = nullptr;
+    int* seqlength_V = nullptr;
     memory_desc_t out_desc;
-    int* o_axes;
-    int* seqlength_O;
+    int* o_axes = nullptr;
+    int* seqlength_O = nullptr;
     memory_desc_t qweight_desc;
     memory_desc_t qbias_desc;
     memory_desc_t kweight_desc;
@@ -625,9 +625,9 @@ struct multi_head_attn_desc_t {
     memory_desc_t oweight_desc;
     memory_desc_t obias_desc;
 
-    int* p_currIdx;
-    int* loWinIdx;
-    int* hiWinIdx;
+    int* p_currIdx = nullptr;
+    int* loWinIdx = nullptr;
+    int* hiWinIdx = nullptr;
 
     float dropout;
     float postdropout;
@@ -648,9 +648,11 @@ struct multi_head_attn_desc_t {
 	size_t workSpaceSizeInBytes;
 	size_t weightSizeInBytes;
 
-    void* weightspace;
-    void* workspace;
-    void* reservespace;
+    void* weightspace = nullptr;
+    void* workspace = nullptr;
+    void* reservespace = nullptr;
+
+    size_t offsets[31];
 };
 
 struct op_desc_t {

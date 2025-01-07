@@ -44,7 +44,12 @@ protected:
 	enum io { q = 0, k, v, o, NUM_IO };
 
     cudnnAttnDescriptor_t attnDesc;
+    // [CUDNN_SEQDATA_TIME_DIM, CUDNN_SEQDATA_BATCH_DIM, CUDNN_SEQDATA_BEAM_DIM, CUDNN_SEQDATA_VECT_DIM]
+    // TIME_DIM can be seen as sequence length, VECT_DIM can be seen as embedding dimension,
+    // BATCH_DIM*BEAM_DIM can be seen as batch size.
     cudnnSeqDataDescriptor_t SeqDataDescs[NUM_IO];
+    // weight[nHeads, projected size, original size], bias[nHeads, projected size, 1],
+    // 'original size' equals to corresponding VECT_DIM.
     cudnnTensorDescriptor_t weightbias_tdesc[8];    // 4 weight and 4 bias.
     size_t weightbias_size[8];
 
@@ -109,6 +114,7 @@ protected:
 
 	cudnnDataType_t data_types[NUM_IO];
 	cudnnDataType_t weight_type;
+    bool type_initialized = false;
 
     // CUDNN_SEQDATA_DIM_COUNT equals to 4.
 	int dimA[NUM_IO][CUDNN_SEQDATA_DIM_COUNT];  
@@ -177,25 +183,6 @@ public:
     status_t check_proj_weight(const multi_head_attn_pd_t* pd){
         for(int i=0; i<8; i++){
             auto wb_md = *(pd->weight_md(i));
-            // check weight or bias data type.
-            cudnnDataType_t wb_dt;
-            CHECK(convert_data_type(&wb_md, &wb_dt));
-            if(i == 0)
-                weight_type = wb_dt;
-            else
-                if(weight_type != wb_dt)
-                    return status::invalid_arguments;
-
-            if(wb_md.ndims != 3)
-                return status::invalid_arguments;
-            
-            // create and set weight or bias tensor descriptor.
-            // weight[nHeads, projected size, original size], bias[nHeads, projected size, 1]
-            int dimA_wb[3]; // all weight and bias md.ndims equals 3.
-            int strideA_wb[3] = {1, 1, 1};  // not support blocking memory.
-            for(int j=0; j<3; j++)
-                dimA_wb[j] = wb_md.dims[j];
-
             // It means this weight/bias is disabled.
             if(dimA_wb[1] == 0) {
                 weightbias_tdesc[i] = nullptr;
@@ -203,6 +190,25 @@ public:
                 pd->set_weightbias_size(0, i);
                 continue;
             }
+
+            // check weight or bias data type.
+            cudnnDataType_t wb_dt;
+            CHECK(convert_data_type(&wb_md, &wb_dt));
+            if(!type_initialized){
+                weight_type = wb_dt;
+                type_initialized = true;
+            }
+            else if(weight_type != wb_dt)
+                return status::invalid_arguments;
+
+            if(wb_md.ndims != 3)
+                return status::invalid_arguments;
+            
+            // create and set weight or bias tensor descriptor.
+            int dimA_wb[3]; // all weight and bias md.ndims equals 3.
+            int strideA_wb[3] = {1, 1, 1};  // not support blocking memory.
+            for(int j=0; j<3; j++)
+                dimA_wb[j] = wb_md.dims[j];
 
             strideA_wb[1] = dimA_wb[2];
             strideA_wb[0] = dimA_wb[1] * dimA_wb[2];
@@ -264,7 +270,7 @@ public:
             for(int j=0; j<CUDNN_SEQDATA_DIM_COUNT; j++){
                 // CUDNN_SEQDATA_VECT_DIM equals 3
                 if(axes[i][j] == CUDNN_SEQDATA_VECT_DIM)
-                    size_QKVO[i] = dimA[i][j];
+                    size_QKVO[i] *= dimA[i][j];
                 // CUDNN_SEQDATA_BATCH_DIM equals 1
                 if(axes[i][j] == CUDNN_SEQDATA_BATCH_DIM){
                     if(dimA[i][j] > maxbatchsize)
@@ -392,9 +398,9 @@ public:
         for(int i=7; i<7+8; i++)
             weightbias[i-7] = args[i];
         // buffers
-        void* weightspace = args[15];
-        void* workspace = args[16];
-        void* reservespace = args[17];
+        weightspace = args[15];
+        workspace = args[16];
+        reservespace = args[17];
 
         void* attn_dropout_states = args[18];
         void* attn_post_dropout_states = args[19];

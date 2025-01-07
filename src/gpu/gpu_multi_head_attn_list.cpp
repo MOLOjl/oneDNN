@@ -20,13 +20,9 @@
 #include "gpu/nvidia/cudnn_multi_head_attn.hpp"
 #endif
 
-// #if DNNL_GPU_VENDOR == DNNL_VENDOR_AMD
-// #include "gpu/amd/miopen_multi_head_attn.hpp"
-// #endif
-
-// #ifdef GENERIC_SYCL_KERNELS_ENABLED
-// #include "gpu/generic/sycl/ref_multi_head_attn.hpp"
-// #endif
+#if DNNL_GPU_VENDOR == DNNL_VENDOR_AMD
+#include "gpu/amd/miopen_multi_head_attn.hpp"
+#endif
 
 namespace dnnl {
 namespace impl {
@@ -35,18 +31,37 @@ namespace gpu {
 namespace {
 
 // clang-format off
-constexpr impl_list_item_t impl_list[] = REG_MULTI_HEAD_ATTN_P({
+constexpr std::map<pk_impl_key_t, std::vector<impl_list_item_t>>
+        impl_list_map REG_MULTI_HEAD_ATTN_P({
+    {{forward}, {
         GPU_INSTANCE_NVIDIA(nvidia::cudnn_multi_head_attn_fwd_t)
-        // GPU_INSTANCE_AMD(amd::miopen_multi_head_attn_t)
-        // GPU_INSTANCE_GENERIC_SYCL(generic::sycl::ref_multi_head_attn_t)
+        GPU_INSTANCE_AMD(amd::miopen_multi_head_attn_fwd_t)
         nullptr,
+    }},
+    {{backward_data}, REG_BWD_D_PK({
+        GPU_INSTANCE_NVIDIA(nvidia::cudnn_multi_head_attn_bwd_data_t)
+        GPU_INSTANCE_AMD(amd::miopen_multi_head_attn_bwd_data_t)
+        nullptr,
+    })},
+    {{backward_weights}, REG_BWD_PK({
+        GPU_INSTANCE_NVIDIA(nvidia::cudnn_multi_head_attn_bwd_weights_t)
+        GPU_INSTANCE_AMD(amd::miopen_multi_head_attn_bwd_weights_t)
+        nullptr,
+    })},
 });
 // clang-format on
 } // namespace
 
 const impl_list_item_t *get_multi_head_attn_impl_list(const multi_head_attn_desc_t *desc) {
-    UNUSED(desc);
-    return impl_list;
+    static const impl_list_item_t empty_list[] = {nullptr};
+
+    const bool is_fwd = utils::one_of(
+            desc->prop_kind, forward_training, forward_inference);
+    prop_kind_t prop_kind = is_fwd ? forward : desc->prop_kind;
+
+    const auto impl_list_it = impl_list_map.find({prop_kind});
+    return impl_list_it != impl_list_map.cend() ? impl_list_it->second.data()
+                                                : empty_list;
 }
 
 } // namespace gpu
