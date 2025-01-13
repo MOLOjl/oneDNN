@@ -205,7 +205,7 @@
 #define REG_MULTI_HEAD_ATTN_P(...) __VA_ARGS__
 #else
 #define REG_MULTI_HEAD_ATTN_P(...) \
-    { nullptr }
+    {}
 #endif
 
 // Primitive CPU ISA section is in src/cpu/platform.hpp

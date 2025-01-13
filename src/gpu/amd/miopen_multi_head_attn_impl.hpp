@@ -29,7 +29,7 @@
 #include "gpu/amd/sycl_hip_scoped_context.hpp"
 #include "gpu/amd/sycl_hip_utils.hpp"
 
-#include "gpu/amd/custom/hip_customs.h"
+#include "gpu/amd/customs/hip_customs.h"
 
 namespace dnnl {
 namespace impl {
@@ -76,6 +76,11 @@ protected:
     bool is_fwd;
     bool is_bwd_data;
     bool is_bwd_weight;
+    
+    float attndropout;
+    float postattndropout;
+    unsigned long long dropoutseed;
+    unsigned long long postdropoutseed;
 
     float alpha_f32 = 1.0;
     float beta_f32 = 0;
@@ -188,7 +193,7 @@ public:
     }
 
 
-    status_t check_qkvo_layout(io idx, memory_desc_t* md, int* axes) {
+    status_t check_qkvo_layout(io idx, const memory_desc_t* md, const int* axes) {
         bool ok = true;
         // TODO: support transpositon for io tensor
         if(axes) {
@@ -211,7 +216,7 @@ public:
             embed_dim = md->dims[ndims_qkvo-1];
             seq_length_L = md->dims[0];
             for(int i=1; i<ndims_qkvo-1; i++)
-                batch_size *= q_dims[i];
+                batch_size *= md->dims[i];
         }
         else {
             if(ndims_qkvo != (int)(md->ndims))
@@ -230,13 +235,13 @@ public:
             if(idx == io::o){
                 if(embed_dim != md->dims[ndims_qkvo-1])
                     return status::invalid_arguments;
-                if(seq_length_L = md->dims[0])
+                if(seq_length_L == md->dims[0])
                     return status::invalid_arguments;
             }
 
             int64_t product = 1;
             for(int i=1; i<ndims_qkvo-1; i++)
-                product *= q_dims[i];
+                product *= md->dims[i];
             if(product != batch_size)
                 return status::invalid_arguments;
         }
@@ -251,13 +256,13 @@ public:
 		CHECK(check_qkvo_layout(io::o, pd->output_md(), pd->output_axes()));
 
 		// convert datatype
-        CHECK(convert_data_type(pd->query_md()->data_type, &midtensor_dtype));
-        CHECK(convert_data_type(pd->key_md()->data_type, &kv_dtype));
-        CHECK(convert_data_type(pd->query_md()->data_type, &qo_dtype));
-        CHECK(get_rocblas_data_type(pd->query_md()->data_type, &data_types[0]));
-        CHECK(get_rocblas_data_type(pd->key_md()->data_type, &data_types[1]));
-        CHECK(get_rocblas_data_type(pd->value_md()->data_type, &data_types[2]));
-        CHECK(get_rocblas_data_type(pd->output_md()->data_type, &data_types[3]));
+        CHECK(convert_data_type(pd->query_md(), &midtensor_dtype));
+        CHECK(convert_data_type(pd->key_md(), &kv_dtype));
+        CHECK(convert_data_type(pd->query_md(), &qo_dtype));
+        CHECK(get_rocblas_data_type(pd->query_md()->data_type, data_types[0]));
+        CHECK(get_rocblas_data_type(pd->key_md()->data_type, data_types[1]));
+        CHECK(get_rocblas_data_type(pd->value_md()->data_type, data_types[2]));
+        CHECK(get_rocblas_data_type(pd->output_md()->data_type, data_types[3]));
 
         // check if qkvo dtype all same.
         rocblas_datatype qdt = data_types[0];
@@ -291,7 +296,7 @@ public:
 
             // check weight or bias data type.
             rocblas_datatype wb_dt;
-            CHECK(get_rocblas_data_type(wb_md.data_type, &wb_dt));
+            CHECK(get_rocblas_data_type(wb_md.data_type, wb_dt));
             if(!type_initialized){
                 weight_type = wb_dt;
                 type_initialized = true;
@@ -320,8 +325,6 @@ public:
                 return status::invalid_arguments;
             if(i == 6 && dim_wb[1] != embed_dim)
                 return status::invalid_arguments;
-
-            auto data_size = types::data_type_size(wb_md.data_type);
         }
         return status::success;
     }
@@ -357,11 +360,11 @@ protected:
     unsigned long long dropoutseed;
     unsigned long long postdropoutseed;
 public:
-    virtual ~cudnn_multi_head_attn_fwd_impl_t() {
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, midtensor_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, qo_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, kv_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, bias_desc);
+    virtual ~miopen_multi_head_attn_fwd_impl_t() {
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, midtensor_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, qo_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, kv_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, bias_desc);
     }
 
     status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
@@ -370,7 +373,7 @@ public:
         CHECK(configure_parameters(pd));
         CHECK(check_proj_weight(pd));
         CHECK(create_miopen_descs(engine, pd));
-        CHECK(init_scratchpad(engine, pd));
+        CHECK(init_scratchpad(pd));
         return status::success;
     }
 
@@ -417,10 +420,10 @@ public:
         return status::success;
     }
 
-    void get_workspace(multi_head_attn_pd_t *pd){
+    void get_workspace(multi_head_attn_pd_t *pd) {
         workSpaceSizeInBytes = 0;
         for(int i=0; i<NUM_IO; i++)
-            CHECK(get_dtype_bytesize(data_types[i], dtype_bytesize[i]));
+            get_dtype_bytesize(data_types[i], dtype_bytesize[i]);
 
         std::vector<size_t> offsets;
 
@@ -429,19 +432,19 @@ public:
 
         // output buffers of QKV project and their transposes
         q_proj_offset = 0;
-        size_t q_proj = weight_enabled[0] ? QO_proj_bytesize : 0;
+        size_t q_proj = QO_proj_bytesize;
 
         q_proj_t_offset = q_proj_offset + q_proj;
         size_t q_proj_tran = QO_proj_bytesize;
         
         k_proj_offset = q_proj_t_offset + q_proj_tran;
-        size_t k_proj = weight_enabled[2] ? KV_proj_bytesize : 0;
+        size_t k_proj = KV_proj_bytesize;
         
         k_proj_t_offset = k_proj_offset + k_proj;
         size_t k_proj_tran = KV_proj_bytesize;
 
         v_proj_offset = k_proj_t_offset + k_proj_tran;
-        size_t v_proj = weight_enabled[4] ? KV_proj_bytesize : 0;
+        size_t v_proj = KV_proj_bytesize;
 
         v_proj_t_offset = v_proj_offset + v_proj;
         size_t v_proj_tran = KV_proj_bytesize;
@@ -451,7 +454,7 @@ public:
         size_t mid_s = dtype_bytesize[io::q] * (batch_size*num_heads) * seq_length_S * seq_length_L;
         
         s_buffer_offset = mid_s_offset + mid_s;
-        if(pd->desc()->prop_kind == forward_inference)
+        if(pd->desc()->prop_kind == prop_kind::forward_inference)
             s_buffer_offset = mid_s_offset;        
         size_t s_buffer = mid_s;
 
@@ -497,7 +500,7 @@ public:
         offsets.push_back(dAV_offset);
         offsets.push_back(dAO_offset);
 
-        if(pd->desc()->prop_kind == forward_training) {
+        if(pd->desc()->prop_kind == prop_kind::forward_training) {
             // backward data
             dout_offset = o_proj_offset + o_proj;   // for dropout
             size_t dout_buffer = QO_proj_bytesize;
@@ -569,14 +572,7 @@ public:
 
     // Scratchpad will still be used in backward, which is different from other primitives.
     // Will set reservedSpace and state of droupouts, which will be used in backward.
-    status_t init_scratchpad(impl::engine_t *engine, multi_head_attn_pd_t *pd) {        
-        auto &sycl_engine = *utils::downcast<amd::engine_t *>(engine);
-        impl::stream_t *service_stream;
-        CHECK(sycl_engine.get_service_stream(service_stream));
-
-        auto hip_stream = utils::downcast<amd::stream_t *>(service_stream);
-        auto handle = hip_stream->get_miopen_handle();
-        
+    status_t init_scratchpad(multi_head_attn_pd_t *pd) {
         if(reserveSpaceSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_reservespace, reserveSpaceSizeInBytes,
@@ -605,21 +601,21 @@ public:
     }
 
     void set_batch_matrices(void* workspace, void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_ASb, 
-            void*& d_AV, void*& d_AO) {
+            void*& d_AV, void*& d_AO) const {
 
         void **h_AQ, **h_AK, **h_AS, **h_ASb, **h_AV, **h_AO;
         int batch_count = batch_size*num_heads;
-        h_AQ = (void**)malloc(sizeof(void*) * batch_count);
-        h_AK = (void**)malloc(sizeof(void*) * batch_count);
-        h_AS = (void**)malloc(sizeof(void*) * batch_count);
-        h_ASb = (void**)malloc(sizeof(void*) * batch_count);
-        h_AV = (void**)malloc(sizeof(void*) * batch_count);
-        h_AO = (void**)malloc(sizeof(void*) * batch_count);
+        h_AQ = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_AK = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_AS = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_ASb = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_AV = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_AO = (void**)std::malloc(sizeof(void*) * batch_count);
         for(int i=0; i<batch_count; i++) {
             h_AQ[i] = (char*)workspace + q_proj_t_offset + sizeof(void*)*i;
             h_AK[i] = (char*)workspace + k_proj_t_offset + sizeof(void*)*i;
             h_AS[i] = (char*)workspace + mid_s_offset + sizeof(void*)*i;
-            // when prop_kind is forward_inference, s_buffer_offset eqs to mid_s_offset.
+            // when prop_kind is prop_kind::forward_inference, s_buffer_offset eqs to mid_s_offset.
             h_ASb[i] = (char*)workspace + s_buffer_offset + sizeof(void*)*i;
             h_AV[i] = (char*)workspace + v_proj_t_offset + sizeof(void*)*i;
             h_AO[i] = (char*)workspace + o_proj_t_offset + sizeof(void*)*i;
@@ -664,9 +660,10 @@ public:
         void* weightbias[8];
         for(int i=5; i<5+8; i++)
             weightbias[i-5] = args[i];
-        // buffers
-        workspace = args[13];
-        reservespace = args[14];
+        // buffers, to avoid change non-const variable 'workspace', 
+        // declare a local variable with the same name.
+        void* workspace = args[13];
+        void* reservespace = args[14];
 
         void* attn_dropout_states = args[15];
         void* attn_post_dropout_states = args[16];
@@ -677,7 +674,7 @@ public:
                 false, MIOPEN_RNG_PSEUDO_XORWOW);
         MIOPEN_EXECUTE_FUNC_V(miopenSetDropoutDescriptor, postDropoutDesc, miopen_handle,
                 postattndropout, attn_post_dropout_states, Dropout_stateSize, 
-                postdropoutseed, dropoutseed, false, false, MIOPEN_RNG_PSEUDO_XORWOW);
+                postdropoutseed, false, false, MIOPEN_RNG_PSEUDO_XORWOW);
 
         const void *alpha = get_gemm_alpha();
         const void *beta = get_gemm_beta();
@@ -703,9 +700,8 @@ public:
                     &f32_alpha, qo_desc, q_proj, &f32_alpha, bias_desc, weightbias[1], 
                     &f32_beta, qo_desc, q_proj);	
 
-
         // (reshape and) transpose q_proj
-        size_t dims_q_proj[3] = {seq_length_L, batch_size*num_heads, embed_dim/num_heads};
+        size_t dims_q_proj[3] = {(size_t)seq_length_L, (size_t)batch_size*num_heads, (size_t)embed_dim/num_heads};
         hip_custom::transpose(dtype_bytesize[io::q], q_proj, q_proj_tran, dims_q_proj, 3, 0, 1);
 
         // project matmul for k, (seq_length_S*batch_size, kdim) x (embed_dim*h/h, kdim)^T
@@ -728,7 +724,7 @@ public:
                     &f32_beta, kv_desc, k_proj);
 
         // (reshape and) transpose k_proj, another transpoe will be done during the matmul of QK^T.
-        size_t dims_k_proj[3] = {seq_length_S, batch_size*num_heads, embed_dim/num_heads};
+        size_t dims_k_proj[3] = {(size_t)seq_length_S, (size_t)batch_size*num_heads, (size_t)embed_dim/num_heads};
         hip_custom::transpose(dtype_bytesize[io::k], k_proj, k_proj_tran, dims_k_proj, 3, 0, 1);
 
         // project matmul for v, (seq_length_S*batch_size, vdim) x (embed_dim*h/h, vdim)^T
@@ -751,7 +747,7 @@ public:
                     &f32_beta, kv_desc, v_proj);
 
         // (reshape and) transpose v_proj
-        size_t dims_v_proj[3] = {seq_length_S, batch_size*num_heads, embed_dim/num_heads};
+        size_t dims_v_proj[3] = {(size_t)seq_length_S, (size_t)(batch_size*num_heads), (size_t)(embed_dim/num_heads)};
         hip_custom::transpose(dtype_bytesize[io::v], v_proj, v_proj_tran, dims_v_proj, 3, 0, 1);
 
         int head_dim = embed_dim / num_heads;
@@ -767,15 +763,15 @@ public:
                 d_AQ, data_types[io::q], head_dim, beta,
                 d_AS, data_types[io::k], seq_length_S, 
                 d_AS, data_types[io::k], seq_length_S, batch_size*num_heads,
-                compute_type, rocblas_gemm_algo_standard, 0);
-        
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
+
         // softmax
         void* mid_tensor_s = (char*)workspace + mid_s_offset;
         MIOPEN_EXECUTE_FUNC_V(miopenSoftmaxForward, miopen_handle, alpha, midtensor_desc, 
             mid_tensor_s, beta, midtensor_desc, mid_tensor_s);
 
         // since backward need mid_tensor_s, it can't be overwrote.
-        // when prop_kind is forward_inference, s_buffer_offset eqs to mid_s_offset.
+        // when prop_kind is prop_kind::forward_inference, s_buffer_offset eqs to mid_s_offset.
         void* s_buffer = (char*)workspace + s_buffer_offset;
 
         // TODO: scale
@@ -796,12 +792,12 @@ public:
                 d_ASb, data_types[io::q], seq_length_S, beta,
                 d_AO, data_types[io::o], head_dim, 
                 d_AO, data_types[io::o], head_dim, batch_size*num_heads,
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
         
         void* o_proj_tran = (char*)workspace + o_proj_t_offset;
         void* o_proj = weight_enabled[6] ? (char*)workspace + o_proj_offset : out;
         // transpose o_proj_tran (and reshape to) -> {seq_length_L, batch_size, embed_dim/h*h}
-        size_t dims_o_proj_tran[3] = {batch_size*num_heads, seq_length_L, embed_dim/num_heads};
+        size_t dims_o_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_L, (size_t)embed_dim/num_heads};
         hip_custom::transpose(dtype_bytesize[io::v], o_proj_tran, o_proj, dims_o_proj_tran, 3, 0, 1);
 
         // reproject matmul for o_proj to get o, (seq_length_L*batch_size, embed_dim) x (embed_dim*h/h, embed_dim)^T
@@ -838,13 +834,13 @@ public:
 struct miopen_multi_head_attn_bwd_data_impl_t : public miopen_multi_head_attn_impl_base_t {
 public:
     virtual ~miopen_multi_head_attn_bwd_data_impl_t() {
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, midtensor_desc);                                                                                                                          
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, qo_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, kv_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, midtensor_desc);                                                                                                                          
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, qo_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, kv_desc);
     }
 
     status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
-        CHECK(cudnn_multi_head_attn_impl_base_t::init(engine, pd));
+        CHECK(miopen_multi_head_attn_impl_base_t::init(engine, pd));
         // configure parameters again
         CHECK(configure_parameters(pd));
         CHECK(check_proj_weight(pd));
@@ -879,7 +875,7 @@ public:
         workspace = pd->get_workspace();
         reservespace = pd->get_reservespace();
 
-        size_t* offsets = pd->get_offsets();
+        const size_t* offsets = pd->get_offsets();
         // forward
         q_proj_offset = offsets[0];
         q_proj_t_offset = offsets[1];
@@ -918,15 +914,15 @@ public:
     }
 
     void set_batch_matrices_bw(void* workspace, void*& d_dAQ, void*& d_dAK, 
-            void*& d_dAS, void*& d_dAV, void*& d_dAO) {
+            void*& d_dAS, void*& d_dAV, void*& d_dAO) const {
         
         void **h_dAQ, **h_dAK, **h_dAS, **h_dAV, **h_dAO;
         int batch_count = batch_size*num_heads;
-        h_dAQ = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAK = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAS = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAV = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAO = (void**)malloc(sizeof(void*) * batch_count);
+        h_dAQ = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAK = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAS = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAV = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAO = (void**)std::malloc(sizeof(void*) * batch_count);
         for(int i=0; i<batch_count; i++) {
             h_dAQ[i] = (char*)workspace + dqproj_t_offset + sizeof(void*)*i;
             h_dAK[i] = (char*)workspace + dkproj_t_offset + sizeof(void*)*i;
@@ -959,7 +955,7 @@ public:
         free(h_dAO);
     }
 
-    void get_batch_matrices(void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) {
+    void get_batch_matrices(void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) const {
         d_AQ = (char*)workspace + dAQ_offset;
         d_AK = (char*)workspace + dAK_offset;
         d_AS = (char*)workspace + dAS_offset;
@@ -981,8 +977,10 @@ public:
 
         // backward post dropout
         void* dout_buffer =  dout_offset + (char*)workspace;
+
+        size_t attn_reserve_size, post_reserve_size;
+        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &attn_reserve_size);
         void* post_reservespace = (char*)reservespace + attn_reserve_size;
-        size_t post_reserve_size;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &post_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, postDropoutDesc, 
                 nullptr, qo_desc, dout, qo_desc, dout_buffer, post_reservespace, 
@@ -1004,8 +1002,8 @@ public:
                     compute_type, rocblas_gemm_algo_standard, -1, 0);
 
         // transpose do_proj (and reshape to) -> {batch_size*h, seq_length_L, embed_dim/h}
-        size_t dims_do_proj_tran[3] = {seq_length_L, batch_size*num_heads, embed_dim/num_heads};
-        hip_custom::transpose(dtype_bytesize[io::v], do_proj, do_proj_tran, dims_o_proj_tran, 3, 0, 1);
+        size_t dims_do_proj_tran[3] = {(size_t)seq_length_L, (size_t)(batch_size*num_heads), (size_t)embed_dim/num_heads};
+        hip_custom::transpose(dtype_bytesize[io::v], do_proj, do_proj_tran, dims_do_proj_tran, 3, 0, 1);
 
         int head_dim = embed_dim / num_heads;
 
@@ -1024,7 +1022,7 @@ public:
                 d_dAO, data_types[io::o], head_dim, beta,
                 d_dAS, data_types[io::o], seq_length_S, 
                 d_dAS, data_types[io::o], seq_length_S, batch_size*num_heads,
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
 
         // S(batch*h, seqlen_L, seq_length_S)^T x dO(batch*h, seqlen_L, embed_dim/h)
         ROCBLAS_EXECUTE_FUNC(rocblas_gemm_batched_ex, rocblas_handle, 
@@ -1035,24 +1033,22 @@ public:
                 d_AS, data_types[io::o], seq_length_S, beta,
                 d_dAV, data_types[io::v], head_dim, 
                 d_dAV, data_types[io::v], head_dim, batch_size*num_heads,
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
 
         void* ds_buffer = ds_offset + (char*)workspace;
         void* attn_reservespace = (char*)reservespace;
-        size_t attn_reserve_size;
-        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &attn_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, attnDropoutDesc, 
                 nullptr, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer, 
                 attn_reservespace, attn_reserve_size);
 
         void* mid_tensor_s = (char*)workspace + mid_s_offset;
         MIOPEN_EXECUTE_FUNC_V(miopenSoftmaxBackward, miopen_handle, alpha, midtensor_desc, 
-            mid_tensor_s, beta, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer);
+            mid_tensor_s, midtensor_desc, ds_buffer, beta, midtensor_desc, ds_buffer);
         
         void* dv_proj = weight_enabled[4] ? dvproj_offset + (char*)workspace : dvalues;
         void* dv_proj_tran = (char*)workspace + doproj_t_offset;
         // transpose dv_proj (and reshape to) -> {seq_length_S, batch_size, embed_dim/h*h}
-        size_t dims_dv_proj_tran[3] = {batch_size*num_heads, seq_length_S, head_dim};
+        size_t dims_dv_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_S, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::v], dv_proj_tran, dv_proj, dims_dv_proj_tran, 3, 0, 1);
 
         // backward v weight, (seq_length_S, batch_size, embed_dim) x (embed_dim, vdim)
@@ -1076,12 +1072,12 @@ public:
                 d_dAS, data_types[io::o], seq_length_S, beta,
                 d_dAK, data_types[io::k], head_dim, 
                 d_dAK, data_types[io::k], head_dim, batch_size*num_heads, 
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
 
         void* dk_proj = weight_enabled[2] ? dkproj_offset + (char*)workspace : dkeys;
         void* dk_proj_tran = (char*)workspace + dkproj_t_offset;
         // transpose dk_proj (and reshape to) -> {seq_length_S, batch_size, embed_dim/h*h}
-        size_t dims_dk_proj_tran[3] = {batch_size*num_heads, seq_length_S, head_dim};
+        size_t dims_dk_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_S, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::k], dk_proj_tran, dk_proj, dims_dk_proj_tran, 3, 0, 1);
 
         // backward k weight, (seq_length_S, batch_size, embed_dim) x (embed_dim, kdim)
@@ -1105,12 +1101,12 @@ public:
                 d_dAS, data_types[io::o], seq_length_S, beta, 
                 d_dAQ, data_types[io::q], head_dim, 
                 d_dAQ, data_types[io::q], head_dim, batch_size*num_heads, 
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
         
         void* dq_proj = weight_enabled[0] ? dqproj_offset + (char*)workspace : dqueries;
         void* dq_proj_tran = (char*)workspace + dqproj_t_offset;
         // transpose dq_proj (and reshape to) -> {seq_length_L, batch_size, embed_dim/h*h}
-        size_t dims_dq_proj_tran[3] = {batch_size*num_heads, seq_length_L, head_dim};
+        size_t dims_dq_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_L, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::q], dq_proj_tran, dq_proj, dims_dq_proj_tran, 3, 0, 1);
 
         // backward q weight, (seq_length_L, batch_size, embed_dim) x (embed_dim, embed_dim)
@@ -1133,21 +1129,21 @@ protected:
     size_t reduce_workspace_size = 0;
 public:
     virtual ~miopen_multi_head_attn_bwd_weights_impl_t() {
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, midtensor_desc);                                                                                                                          
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, qo_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, kv_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryTensorDescriptor, bias_desc);
-        MIOPEN_EXECUTE_FUNC_V(miopenDestoryReduceTensorDescriptor, reduceDesc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, midtensor_desc);                                                                                                                          
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, qo_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, kv_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, bias_desc);
+        MIOPEN_EXECUTE_FUNC_V(miopenDestroyReduceTensorDescriptor, reduceDesc);
     }
     
     status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
-        CHECK(cudnn_multi_head_attn_impl_base_t::init(engine, pd));
+        CHECK(miopen_multi_head_attn_impl_base_t::init(engine, pd));
         // configure parameters again
         CHECK(configure_parameters(pd));
         CHECK(check_proj_weight(pd));
         // get some parameters from forward primitive desc
         CHECK(get_fwd_parameters(pd));
-        CHECK(create_miopen_descs(pd));
+        CHECK(create_miopen_descs(engine, pd));
         return status::success;
     }
 
@@ -1160,7 +1156,7 @@ public:
         workspace = pd->get_workspace();
         reservespace = pd->get_reservespace();
 
-        size_t* offsets = pd->get_offsets();
+        const size_t* offsets = pd->get_offsets();
         // forward
         q_proj_offset = offsets[0];
         q_proj_t_offset = offsets[1];
@@ -1199,7 +1195,7 @@ public:
     }
 
     // mid tensor desc and droupout desc
-    status_t create_miopen_descs(impl::engine_t *engine, const multi_head_attn_pd_t *pd) {
+    status_t create_miopen_descs(impl::engine_t *engine, multi_head_attn_pd_t *pd) {
         auto &sycl_engine = *utils::downcast<amd::engine_t *>(engine);
         impl::stream_t *service_stream;
         CHECK(sycl_engine.get_service_stream(service_stream));
@@ -1228,9 +1224,9 @@ public:
 
         size_t size_temp = 0;
         // bias[seq_len_L or seq_len_S, batch, embed_dim, 1] -> bias[1, 1, embed_dim]
-        MIOPEN_EXECUTE_FUNC_V(miopenGetReductionWorkspaceSize, handle, reduceDesc, qo_desc
+        MIOPEN_EXECUTE_FUNC_V(miopenGetReductionWorkspaceSize, handle, reduceDesc, qo_desc, 
                 bias_desc, &reduce_workspace_size);
-        MIOPEN_EXECUTE_FUNC_V(miopenGetReductionWorkspaceSize, handle, reduceDesc, kv_desc
+        MIOPEN_EXECUTE_FUNC_V(miopenGetReductionWorkspaceSize, handle, reduceDesc, kv_desc, 
                 bias_desc, &size_temp);
 
         if(size_temp > reduce_workspace_size)
@@ -1244,16 +1240,24 @@ public:
         return status::success;
     }
 
+    void get_batch_matrices(void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) const {
+        d_AQ = (char*)workspace + dAQ_offset;
+        d_AK = (char*)workspace + dAK_offset;
+        d_AS = (char*)workspace + dAS_offset;
+        d_AV = (char*)workspace + dAV_offset;
+        d_AO = (char*)workspace + dAO_offset;
+    }
+
     void set_batch_matrices_bw(void* workspace, void*& d_dAQ, void*& d_dAK, 
-            void*& d_dAS, void*& d_dAV, void*& d_dAO) {
+            void*& d_dAS, void*& d_dAV, void*& d_dAO) const {
         
         void **h_dAQ, **h_dAK, **h_dAS, **h_dAV, **h_dAO;
         int batch_count = batch_size*num_heads;
-        h_dAQ = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAK = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAS = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAV = (void**)malloc(sizeof(void*) * batch_count);
-        h_dAO = (void**)malloc(sizeof(void*) * batch_count);
+        h_dAQ = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAK = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAS = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAV = (void**)std::malloc(sizeof(void*) * batch_count);
+        h_dAO = (void**)std::malloc(sizeof(void*) * batch_count);
         for(int i=0; i<batch_count; i++) {
             h_dAQ[i] = (char*)workspace + dqproj_t_offset + sizeof(void*)*i;
             h_dAK[i] = (char*)workspace + dkproj_t_offset + sizeof(void*)*i;
@@ -1307,8 +1311,10 @@ public:
 
         // backward post dropout
         void* dout_buffer =  dout_offset + (char*)workspace;
+        
+        size_t post_reserve_size, attn_reserve_size;
+        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &attn_reserve_size);
         void* post_reservespace = (char*)reservespace + attn_reserve_size;
-        size_t post_reserve_size;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &post_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, postDropoutDesc, 
                 nullptr, qo_desc, dout, qo_desc, dout_buffer, post_reservespace, 
@@ -1349,8 +1355,8 @@ public:
         }
 
         // transpose do_proj (and reshape to) -> {batch_size*h, seq_length_L, embed_dim/h}
-        size_t dims_do_proj_tran[3] = {seq_length_L, batch_size*num_heads, embed_dim/num_heads};
-        hip_custom::transpose(dtype_bytesize[io::v], do_proj, do_proj_tran, dims_o_proj_tran, 3, 0, 1);
+        size_t dims_do_proj_tran[3] = {(size_t)seq_length_L, (size_t)(batch_size*num_heads), (size_t)embed_dim/num_heads};
+        hip_custom::transpose(dtype_bytesize[io::v], do_proj, do_proj_tran, dims_do_proj_tran, 3, 0, 1);
 
         int head_dim = embed_dim / num_heads;
 
@@ -1369,7 +1375,7 @@ public:
                 d_dAO, data_types[io::o], head_dim, beta,
                 d_dAS, data_types[io::o], seq_length_S, 
                 d_dAS, data_types[io::o], seq_length_S, batch_size*num_heads,
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
 
 
         // S(batch*h, seqlen_L, seq_length_S)^T x dO(batch*h, seqlen_L, embed_dim/h)
@@ -1381,24 +1387,22 @@ public:
                 d_AS, data_types[io::o], seq_length_S, beta,
                 d_dAV, data_types[io::v], head_dim, 
                 d_dAV, data_types[io::v], head_dim, batch_size*num_heads,
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
 
         void* ds_buffer = ds_offset + (char*)workspace;
         void* attn_reservespace = (char*)reservespace;
-        size_t attn_reserve_size;
-        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &attn_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, attnDropoutDesc, 
                 nullptr, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer, 
                 attn_reservespace, attn_reserve_size);
 
         void* mid_tensor_s = (char*)workspace + mid_s_offset;
         MIOPEN_EXECUTE_FUNC_V(miopenSoftmaxBackward, miopen_handle, alpha, midtensor_desc, 
-            mid_tensor_s, beta, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer);
+            mid_tensor_s, midtensor_desc, ds_buffer, beta, midtensor_desc, ds_buffer);
 
-        void* dv_proj = weight_enabled[4] ? dvproj_offset + (char*)workspace : dvalues;
+        void* dv_proj = dvproj_offset + (char*)workspace;
         void* dv_proj_tran = (char*)workspace + doproj_t_offset;
         // transpose dv_proj (and reshape to) -> {seq_length_S, batch_size, embed_dim/h*h}
-        size_t dims_dv_proj_tran[3] = {batch_size*num_heads, seq_length_S, head_dim};
+        size_t dims_dv_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_S, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::v], dv_proj_tran, dv_proj, dims_dv_proj_tran, 3, 0, 1);
 
         if(weight_enabled[5])
@@ -1427,12 +1431,12 @@ public:
                 d_dAS, data_types[io::o], seq_length_S, beta,
                 d_dAK, data_types[io::k], head_dim, 
                 d_dAK, data_types[io::k], head_dim, batch_size*num_heads, 
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
 
-        void* dk_proj = weight_enabled[2] ? dkproj_offset + (char*)workspace : dkeys;
+        void* dk_proj = dkproj_offset + (char*)workspace;
         void* dk_proj_tran = (char*)workspace + dkproj_t_offset;
         // transpose dk_proj (and reshape to) -> {seq_length_S, batch_size, embed_dim/h*h}
-        size_t dims_dk_proj_tran[3] = {batch_size*num_heads, seq_length_S, head_dim};
+        size_t dims_dk_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_S, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::k], dk_proj_tran, dk_proj, dims_dk_proj_tran, 3, 0, 1);
 
         if(weight_enabled[3])
@@ -1461,12 +1465,12 @@ public:
                 d_dAS, data_types[io::o], seq_length_S, beta, 
                 d_dAQ, data_types[io::q], head_dim, 
                 d_dAQ, data_types[io::q], head_dim, batch_size*num_heads, 
-                compute_type, rocblas_gemm_algo_standard, 0);
+                compute_type, rocblas_gemm_algo_standard, 0, 0);
         
-        void* dq_proj = weight_enabled[0] ? dqproj_offset + (char*)workspace : dqueries;
+        void* dq_proj = dqproj_offset + (char*)workspace;
         void* dq_proj_tran = (char*)workspace + dqproj_t_offset;
         // transpose dq_proj (and reshape to) -> {seq_length_L, batch_size, embed_dim/h*h}
-        size_t dims_dq_proj_tran[3] = {batch_size*num_heads, seq_length_L, head_dim};
+        size_t dims_dq_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_L, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::q], dq_proj_tran, dq_proj, dims_dq_proj_tran, 3, 0, 1);
 
         if(weight_enabled[1])

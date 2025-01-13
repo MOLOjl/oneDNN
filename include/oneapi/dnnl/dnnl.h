@@ -3551,21 +3551,160 @@ dnnl_status_t DNNL_API dnnl_reduction_primitive_desc_create(
 /// @addtogroup dnnl_api_multi_head_attn Multi-head attention
 /// @{
 
+/// Creates a primitive descriptor for a multi-head attention forward primitive.
+/// for cuda
+///
+/// @param primitive_desc_iface Output primitive descriptor.
+/// @param engine Engine to use.
+/// @param prop_kind Propagation kind. Possible values are 
+///     #dnnl_forward_training and #dnnl_forward_inference.
+/// @param alg_kind Attntion forward querymap algorithm kind: either 
+///     #attn_querymap_all2one, or #attn_querymap_one2one. only used by 
+///     nvidia cudnn backend.
+/// @param num_heads Number of parallel attention heads.
+/// @param softmax_scaler Softmax smoothing (1.0 >= smScaler >= 0.0) or sharpening 
+///     (smScaler > 1.0) coefficient. Negative values are not accepted.
+/// @param devSeqLengthsQO_desc Description of memory stores the Largest sequence 
+///     length related to Q, O, dQ, and dO inputs and outputs.
+/// @param devSeqLengthsKV_desc Description of memory stores the Largest sequence 
+///     length related to K, V, dK, and dV inputs and outputs.
+/// @param queries_desc Queries memory descriptor.
+/// @param q_axes Array of axes that defines the layout of queries memory.
+/// @param seqlength_Q An integer array that defines all sequence lengths of queries.
+/// @param residuals_desc Queries residual memory descriptor.
+/// @param keys_desc Keys memory descriptor.
+/// @param k_axes Array of axes that defines the layout of keys memory.
+/// @param seqlength_K An integer array that defines all sequence lengths of keys.
+/// @param values_desc Values memory descriptor.
+/// @param v_axes Array of axes that defines the layout of values memory.
+/// @param seqlength_V An integer array that defines all sequence lengths of values.
+/// @param out_desc Output memory descriptor.
+/// @param o_axes Array of axes that defines the layout of output memory.
+/// @param seqlength_O An integer array that defines all sequence lengths of output.
+/// @param qweight_desc Queries projection weights memory descriptor.
+/// @param qbias_desc Queries projection bias memory descriptor.
+/// @param kweight_desc Keys projection weights memory descriptor.
+/// @param kbias_desc Keys projection bias memory descriptor.
+/// @param vweight_desc Values projection weights memory descriptor.
+/// @param vbias_desc Values projection bias memory descriptor.
+/// @param oweight_desc Output projection weights memory descriptor.
+/// @param obias_desc Output projection bias memory descriptor.
+/// @param p_currIdx Host pointer to time-step in queries to process. 
+///     When the currIdx argument is negative, all Q time-steps are processed.
+/// @param loWinIdx Host integer arrays specifying the start indices of the attention 
+///     window for each Q time-step.
+/// @param hiWinIdx Host integer arrays specifying the end indices of the attention 
+///     window for each Q time-step.
+/// @param dropout The probability with which the value from input is set to zero 
+///     during the attention dropout layer.
+/// @param postdropout The probability with which the value from input is set to zero 
+///     during the post attention dropout layer.
+/// @param seed Seed used to initialize random number generator states in attention 
+///     dropout layer.
+/// @param postseed Seed used to initialize random number generator states in post 
+///     attention dropout layer.
+/// @param attr Primitive attributes (can be NULL).
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
 dnnl_status_t DNNL_API dnnl_multi_head_attn_forward_primitive_desc_create(
         dnnl_primitive_desc_t *primitive_desc_iface, dnnl_engine_t engine,
-        dnnl_prop_kind_t prop_kind, dnnl_alg_kind_t alg_kind, int num_heads, double softmax_scaler, 
-        const_dnnl_memory_desc_t *devSeqLengthsQO_desc, const_dnnl_memory_desc_t *devSeqLengthsKV_desc, 
-        const_dnnl_memory_desc_t *queries_desc, int* q_axes, int* seqlength_Q, 
-        const_dnnl_memory_desc_t *residuals_desc, const_dnnl_memory_desc_t *keys_desc, int* k_axes, 
-        int* seqlength_K, const_dnnl_memory_desc_t *values_desc, int* v_axes, int* seqlength_V, 
-        const_dnnl_memory_desc_t *out_desc, int* o_axes, int* seqlength_O, 
-        const_dnnl_memory_desc_t *qweight_desc, const_dnnl_memory_desc_t *qbias_desc, 
-        const_dnnl_memory_desc_t *kweight_desc, const_dnnl_memory_desc_t *kbias_desc, 
-        const_dnnl_memory_desc_t *vweight_desc, const_dnnl_memory_desc_t *vbias_desc, 
-        const_dnnl_memory_desc_t *oweight_desc, const_dnnl_memory_desc_t *obias_desc, 
-        int* p_currIdx, int* loWinIdx, int* hiWinIdx, float dropout, float postdropout, 
-        unsigned long long seed, unsigned long long postseed,
-        const_dnnl_primitive_attr_t *attr);
+        dnnl_prop_kind_t prop_kind, dnnl_alg_kind_t alg_kind, int num_heads, 
+        double softmax_scaler, const_dnnl_memory_desc_t devSeqLengthsQO_desc, 
+        const_dnnl_memory_desc_t devSeqLengthsKV_desc, 
+        const_dnnl_memory_desc_t queries_desc, int* q_axes, int* seqlength_Q, 
+        const_dnnl_memory_desc_t residuals_desc, const_dnnl_memory_desc_t keys_desc, 
+        int* k_axes, int* seqlength_K, const_dnnl_memory_desc_t values_desc, 
+        int* v_axes, int* seqlength_V, const_dnnl_memory_desc_t out_desc, 
+        int* o_axes, int* seqlength_O, const_dnnl_memory_desc_t qweight_desc, 
+        const_dnnl_memory_desc_t qbias_desc, const_dnnl_memory_desc_t kweight_desc, 
+        const_dnnl_memory_desc_t kbias_desc, const_dnnl_memory_desc_t vweight_desc, 
+        const_dnnl_memory_desc_t vbias_desc, const_dnnl_memory_desc_t oweight_desc, 
+        const_dnnl_memory_desc_t obias_desc, int* p_currIdx, int* loWinIdx, 
+        int* hiWinIdx, float dropout, float postdropout, unsigned long long seed, 
+        unsigned long long postseed, const_dnnl_primitive_attr_t attr);
+
+/// Creates a primitive descriptor for a multi-head attention forward primitive.
+/// for rocm
+///
+/// @param primitive_desc_iface Output primitive descriptor.
+/// @param engine Engine to use.
+/// @param prop_kind Propagation kind. Possible values are 
+///     #dnnl_forward_training and #dnnl_forward_inference.
+/// @param num_heads Number of parallel attention heads.
+/// @param softmax_scaler Softmax smoothing (1.0 >= smScaler >= 0.0) or sharpening 
+///     (smScaler > 1.0) coefficient. Negative values are not accepted.
+/// @param queries_desc Queries memory descriptor.
+/// @param q_axes Array of axes that defines the layout of queries memory.
+/// @param residuals_desc Queries residual memory descriptor.
+/// @param keys_desc Keys memory descriptor.
+/// @param k_axes Array of axes that defines the layout of keys memory.
+/// @param values_desc Values memory descriptor.
+/// @param v_axes Array of axes that defines the layout of values memory.
+/// @param out_desc Output memory descriptor.
+/// @param o_axes Array of axes that defines the layout of output memory.
+/// @param qweight_desc Queries projection weights memory descriptor.
+/// @param qbias_desc Queries projection bias memory descriptor.
+/// @param kweight_desc Keys projection weights memory descriptor.
+/// @param kbias_desc Keys projection bias memory descriptor.
+/// @param vweight_desc Values projection weights memory descriptor.
+/// @param vbias_desc Values projection bias memory descriptor.
+/// @param oweight_desc Output projection weights memory descriptor.
+/// @param obias_desc Output projection bias memory descriptor.
+/// @param dropout The probability with which the value from input is set to zero 
+///     during the attention dropout layer.
+/// @param postdropout The probability with which the value from input is set to zero 
+///     during the post attention dropout layer.
+/// @param seed Seed used to initialize random number generator states in attention 
+///     dropout layer.
+/// @param postseed Seed used to initialize random number generator states in post 
+///     attention dropout layer.
+/// @param attr Primitive attributes (can be NULL).
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_multi_head_attn_forward_primitive_desc_create_rocm(
+        dnnl_primitive_desc_t *primitive_desc_iface, dnnl_engine_t engine,
+        dnnl_prop_kind_t prop_kind, int num_heads, double softmax_scaler, 
+        const_dnnl_memory_desc_t queries_desc, int* q_axes,
+        const_dnnl_memory_desc_t residuals_desc, const_dnnl_memory_desc_t keys_desc, 
+        int* k_axes, const_dnnl_memory_desc_t values_desc, 
+        int* v_axes, const_dnnl_memory_desc_t out_desc, 
+        int* o_axes, const_dnnl_memory_desc_t qweight_desc, 
+        const_dnnl_memory_desc_t qbias_desc, const_dnnl_memory_desc_t kweight_desc, 
+        const_dnnl_memory_desc_t kbias_desc, const_dnnl_memory_desc_t vweight_desc, 
+        const_dnnl_memory_desc_t vbias_desc, const_dnnl_memory_desc_t oweight_desc, 
+        const_dnnl_memory_desc_t obias_desc, float dropout, float postdropout, 
+        unsigned long long seed, unsigned long long postseed, 
+        const_dnnl_primitive_attr_t attr);
+
+/// Creates a primitive descriptor for a multi-head attention forward primitive.
+///
+/// @param primitive_desc_iface Output primitive descriptor.
+/// @param engine Engine to use.
+/// @param hint_fwd_pd Primitive descriptor for a respective forward propagation
+///     primitive.
+/// @param attr Primitive attributes (can be NULL).
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_multi_head_attn_backward_data_primitive_desc_create(
+        dnnl_primitive_desc_t *primitive_desc_iface, dnnl_engine_t engine,
+        const_dnnl_primitive_desc_t hint_fwd_pd,
+        const_dnnl_primitive_attr_t attr);
+
+/// Creates a primitive descriptor for a multi-head attention forward primitive.
+///
+/// @param primitive_desc_iface Output primitive descriptor.
+/// @param engine Engine to use.
+/// @param WgradMode_alg Weight gradient output mode. either #attn_wgrad_add, 
+/// or #attn_wgrad_set. only used by nvidia cudnn backend.
+/// @param hint_fwd_pd Primitive descriptor for a respective forward propagation
+///     primitive.
+/// @param attr Primitive attributes (can be NULL).
+/// @returns #dnnl_success on success and a status describing the error
+///     otherwise.
+dnnl_status_t DNNL_API dnnl_multi_head_attn_backward_weights_primitive_desc_create(
+        dnnl_primitive_desc_t *primitive_desc_iface, dnnl_engine_t engine,
+        dnnl_alg_kind_t WgradMode_alg, const_dnnl_primitive_desc_t hint_fwd_pd,
+        const_dnnl_primitive_attr_t attr);
 
 /// @} dnnl_api_multi_head_attn
 

@@ -59,9 +59,9 @@ protected:
             case miopenInt8:
                 blas_dt = rocblas_datatype_i8_r;
                 return status::success;
-            case miopenInt8x4:
-                blas_dt = rocblas_datatype_i8_r;
-                return status::success;
+            // case miopenInt8x4:
+            //     blas_dt = rocblas_datatype_i8_r;
+            //     return status::success;
             case miopenInt32:
                 blas_dt = rocblas_datatype_i32_r;
                 return status::success;

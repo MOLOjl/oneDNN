@@ -14,21 +14,21 @@
 * limitations under the License.
 *******************************************************************************/
 
-/// @example matmul.cpp
-/// > Annotated version: @ref matmul_example_cpp
+/// @example multi_head_attn.cpp
+/// > Annotated version: @ref multi_head_attn_example_cpp
 ///
-/// @page matmul_example_cpp_short
+/// @page multi_head_attn_example_cpp_short
 ///
 /// This C++ API example demonstrates how to create and execute a
-/// [MatMul](@ref dev_guide_matmul) primitive.
+/// [multi_head_attn](@ref dev_guide_multi_head_attn) primitive.
 ///
 /// Key optimizations included in this example:
 /// - Primitive attributes with fused post-ops.
 ///
-/// @page matmul_example_cpp Matmul Primitive Example
-/// @copydetails matmul_example_cpp_short
+/// @page multi_head_attn_example_cpp multi_head_attn Primitive Example
+/// @copydetails multi_head_attn_example_cpp_short
 ///
-/// @include matmul.cpp
+/// @include multi_head_attn.cpp
 
 #include <algorithm>
 #include <cmath>
@@ -43,6 +43,13 @@ using namespace dnnl;
 
 using tag = memory::format_tag;
 using dt = memory::data_type;
+
+enum platform {
+    cuda = 0,
+    rocm = 1,
+} p;
+
+p = rocm;
 
 void maulti_head_attn_example(dnnl::engine::kind engine_kind) {
 
@@ -153,31 +160,56 @@ void maulti_head_attn_example(dnnl::engine::kind engine_kind) {
 
     // Create primitive descriptor.
     auto attn_pd = multi_head_attn_forward::primitive_desc(
-            engine, algorithm::attn_querymap_one2one, SeqLengths_md, SeqLengths_md, qkvo_md, qkvo_md, 
+            engine, algorithm::attn_querymap_one2one, prop_kind::forward_training, SeqLengths_md, SeqLengths_md, qkvo_md, qkvo_md, 
 			qkvo_md, qkvo_md, qkvo_md, weights_md, bias_md, weights_md, bias_md, weights_md, bias_md,
 			weights_md, bias_md, num_head, smScalar, qkvo_axes, seqlength_QKVO, qkvo_axes, seqlength_QKVO,
 			qkvo_axes, seqlength_QKVO, qkvo_axes, seqlength_QKVO, p_currIdx, loWinIdx.data(), 
 			hiWinIdx.data(), dropout, seed, dropout, seed);
+
+    if(p == platform::rocm)
+        // Create primitive descriptor.
+        attn_pd = multi_head_attn_forward::primitive_desc(
+                engine, prop_kind::forward_training, qkvo_md, qkvo_md, qkvo_md, 
+                qkvo_md, qkvo_md, weights_md, bias_md, weights_md, bias_md, 
+                weights_md, bias_md, weights_md, bias_md, num_head, smScalar, 
+                qkvo_axes, qkvo_axes, qkvo_axes, qkvo_axes, dropout, 
+                seed, dropout, seed);
 
     // Create the primitive.
     auto attn_prim = multi_head_attn_forward(attn_pd);
 
     // Primitive arguments.
     std::unordered_map<int, memory> attn_args;
-    attn_args.insert({DNNL_ARG_MULTIPLE_SRC, devSeqLengthsQO_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 1, devSeqLengthsKV_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 2, query_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 3, residuals_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 4, key_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 5, value_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 6, qw_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 7, qb_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 8, kw_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 9, kb_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 10, vw_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 11, vb_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 12, ow_mem});
-	attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 13, ob_mem});
+    if(p == platform::cuda) {
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC, devSeqLengthsQO_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 1, devSeqLengthsKV_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 2, query_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 3, residuals_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 4, key_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 5, value_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 6, qw_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 7, qb_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 8, kw_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 9, kb_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 10, vw_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 11, vb_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 12, ow_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 13, ob_mem});        
+    }
+    else if(p == platform::rocm) {
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 0, query_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 1, residuals_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 2, key_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 3, value_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 4, qw_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 5, qb_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 6, kw_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 7, kb_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 8, vw_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 9, vb_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 10, ow_mem});
+        attn_args.insert({DNNL_ARG_MULTIPLE_SRC + 11, ob_mem});
+    }
 
 	attn_args.insert({DNNL_ARG_DST, output_mem});
 
@@ -193,5 +225,5 @@ void maulti_head_attn_example(dnnl::engine::kind engine_kind) {
 }
 
 int main(int argc, char **argv) {
-    return handle_example_errors(matmul_example, parse_engine_kind(argc, argv));
+    return handle_example_errors(multi_head_attn_example, parse_engine_kind(argc, argv));
 }

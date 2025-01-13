@@ -14,18 +14,32 @@
 # limitations under the License.
 #===============================================================================
 
+set(ROCM_PATH "/opt/dtk")
+set(HIPCC_EXECUTABLE "/opt/dtk/bin/hipcc")
+
+# find_program(HIPCC_EXECUTABLE hipcc PATHS $ENV{HIP_PATH}/bin)
+# if (NOT HIPCC_EXECUTABLE)
+#     message(FATAL_ERROR "hipcc not found! Make sure HIP_PATH is set correctly.")
+# endif()
+
+message(STATUS "find hipcc: ${HIPCC_EXECUTABLE}")
+
 file(GLOB SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cc)
 
 set(OBJ_LIB ${LIB_PACKAGE_NAME}_sycl_amd_custom)
 
 add_library(${OBJ_LIB} OBJECT ${SOURCES})
 
-enable_language(HIP)
+message(STATUS "0 hip cxx compiler: ${CMAKE_CXX_COMPILER}")
 
-set(CMAKE_C_COMPILER hipcc)
-set(CMAKE_CXX_COMPILER hipcc)
+# enable_language(HIP)
+
+set(CMAKE_C_COMPILER ${HIPCC_EXECUTABLE})
+set(CMAKE_CXX_COMPILER ${HIPCC_EXECUTABLE})
 set(CMAKE_C_FLAGS "")
 set(CMAKE_CXX_FLAGS "")
+
+add_compile_options("--rocm-path ${ROCM_PATH}")
 
 target_include_directories(${OBJ_LIB} PRIVATE ${HIP_INCLUDE_DIR})
 # message(FATAL_ERROR "${HIP_INCLUDE_DIR}")

@@ -652,6 +652,9 @@ struct multi_head_attn_desc_t {
     void* workspace = nullptr;
     void* reservespace = nullptr;
 
+    // miopen
+    void* attnDropoutDesc;
+    void* postDropoutDesc;
     size_t offsets[31];
 };
 

@@ -23,3 +23,5 @@ set(OBJ_LIB ${LIB_PACKAGE_NAME}_gpu_amd)
 add_library(${OBJ_LIB} OBJECT ${SOURCES})
 set_property(GLOBAL APPEND PROPERTY DNNL_LIB_DEPS
     $<TARGET_OBJECTS:${OBJ_LIB}>)
+
+add_subdirectory(customs)

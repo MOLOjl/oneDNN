@@ -105,5 +105,100 @@ status_t dnnl_multi_head_attn_forward_primitive_desc_create(
             (const op_desc_t *)&attn_desc, nullptr, attr);
 }
 
+status_t dnnl_multi_head_attn_forward_primitive_desc_create_rocm(
+        primitive_desc_iface_t **primitive_desc_iface, engine_t *engine,
+        prop_kind_t prop_kind, int num_heads, double softmax_scaler, 
+        const memory_desc_t *queries_desc, int* q_axes, 
+        const memory_desc_t *residuals_desc, const memory_desc_t *keys_desc, 
+        int* k_axes, const memory_desc_t *values_desc, int* v_axes, 
+        const memory_desc_t *out_desc, int* o_axes, 
+        const memory_desc_t *qweight_desc, const memory_desc_t *qbias_desc, 
+        const memory_desc_t *kweight_desc, const memory_desc_t *kbias_desc, 
+        const memory_desc_t *vweight_desc, const memory_desc_t *vbias_desc, 
+        const memory_desc_t *oweight_desc, const memory_desc_t *obias_desc, 
+        float dropout, float postdropout, unsigned long long seed, 
+        unsigned long long postseed, const primitive_attr_t *attr) {
+    
+    if (!one_of(prop_kind, forward_inference, forward_training))
+        return invalid_arguments;
 
-// vim: et ts=4 sw=4 cindent cino+=l0,\:4,N-s
+    auto attn_desc = multi_head_attn_desc_t();
+    attn_desc.primitive_kind = primitive_kind::multi_head_attn;
+    attn_desc.prop_kind = prop_kind;
+
+    attn_desc.num_heads = num_heads;
+    attn_desc.softmax_scaler = softmax_scaler;
+    attn_desc.queries_desc = *queries_desc;
+    attn_desc.q_axes = q_axes;
+
+    if(residuals_desc != nullptr)
+        attn_desc.residuals_desc = *residuals_desc;
+
+    attn_desc.keys_desc = *keys_desc;
+    attn_desc.k_axes = k_axes;
+    attn_desc.values_desc = *values_desc;
+    attn_desc.v_axes = v_axes;
+    attn_desc.out_desc = *out_desc;
+    attn_desc.o_axes = o_axes;
+
+    if(qweight_desc != nullptr)
+        attn_desc.qweight_desc = *qweight_desc;
+    if(qbias_desc != nullptr)
+        attn_desc.qbias_desc = *qbias_desc;
+    if(kweight_desc != nullptr)
+        attn_desc.kweight_desc = *kweight_desc;
+    if(kbias_desc != nullptr)
+        attn_desc.kbias_desc = *kbias_desc;
+    if(vweight_desc != nullptr)
+        attn_desc.vweight_desc = *vweight_desc;
+    if(vbias_desc != nullptr)
+        attn_desc.vbias_desc = *vbias_desc;
+    if(oweight_desc != nullptr)
+        attn_desc.oweight_desc = *oweight_desc;
+    if(obias_desc != nullptr)
+        attn_desc.obias_desc = *obias_desc;
+
+    attn_desc.dropout = dropout;
+    attn_desc.postdropout = postdropout;
+    attn_desc.dropout = seed;
+    attn_desc.postdropout = postseed;
+
+    return primitive_desc_create(primitive_desc_iface, engine,
+            (const op_desc_t *)&attn_desc, nullptr, attr);
+}
+
+status_t dnnl_multi_head_attn_backward_data_primitive_desc_create(
+        primitive_desc_iface_t **primitive_desc_iface, engine_t *engine,
+        prop_kind_t prop_kind, const primitive_desc_iface_t *hint_fwd_pd,
+        const primitive_attr_t *attr) {
+
+    if (!one_of(prop_kind, forward_inference, forward_training))
+        return invalid_arguments;
+
+    auto attn_desc = multi_head_attn_desc_t();
+    attn_desc.primitive_kind = primitive_kind::multi_head_attn;
+    attn_desc.prop_kind = prop_kind::backward_data;
+
+    return primitive_desc_create(primitive_desc_iface, engine,
+            (const op_desc_t *)&attn_desc, hint_fwd_pd, attr);
+
+}
+
+status_t dnnl_multi_head_attn_backward_weights_primitive_desc_create(
+        primitive_desc_iface_t **primitive_desc_iface, engine_t *engine,
+        prop_kind_t prop_kind, alg_kind_t WgradMode_alg, 
+        const primitive_desc_iface_t *hint_fwd_pd,
+        const primitive_attr_t *attr) {
+
+    if (!one_of(prop_kind, forward_inference, forward_training))
+        return invalid_arguments;
+
+    auto attn_desc = multi_head_attn_desc_t();
+    attn_desc.primitive_kind = primitive_kind::multi_head_attn;
+    attn_desc.prop_kind = prop_kind::backward_weights;
+    attn_desc.wgrad_alg_kind = WgradMode_alg;
+
+    return primitive_desc_create(primitive_desc_iface, engine,
+            (const op_desc_t *)&attn_desc, hint_fwd_pd, attr);
+
+}

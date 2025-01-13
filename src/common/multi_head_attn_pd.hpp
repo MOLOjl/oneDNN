@@ -295,18 +295,18 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
             desc_.offsets[i] = offsets_[i];
     }
 
-    size_t* get_offsets() const {
+    const size_t* get_offsets() const {
         return desc()->offsets;
     }
 
-    void set_dropDesc(int idx, void* DropoutDesc) {
+    void set_dropDesc(int idx, void* DropoutDesc) const {
         if(idx == 0)
             desc_.attnDropoutDesc = DropoutDesc;
         if(idx == 1)
             desc_.postDropoutDesc = DropoutDesc;
     }
 
-    void* get_dropDesc(int idx) {
+    void* get_dropDesc(int idx) const {
         if(idx == 0)
             return desc()->attnDropoutDesc;
         if(idx == 1)
@@ -321,8 +321,11 @@ protected:
             const primitive_attr_t *attr,
             const multi_head_attn_pd_t *hint_fwd_pd)
         : primitive_desc_t(attr, base_pkind) {
-            if(hint_fwd_pd)
+            if(hint_fwd_pd) {
                 desc_ = *(hint_fwd_pd->desc());
+                desc_.prop_kind = adesc->prop_kind;
+                desc_.wgrad_alg_kind = adesc->wgrad_alg_kind;
+            }
             else
                 desc_ = *adesc;
         }

@@ -104,14 +104,13 @@ status_t cudnn_multi_head_attn_bwd_data_t::execute(
         auto arg_devSeqLengthsQO = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 0);
         auto arg_devSeqLengthsKV = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 1);
         auto arg_dout = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 2);
-        
-        auto arg_queries = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 1);
-        auto arg_keys = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 3);
-        auto arg_values = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 5);
+        auto arg_queries = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 3);
+        auto arg_keys = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 4);
+        auto arg_values = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 5);
         
         auto arg_dqueries = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 0);
-        auto arg_dkeys = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 2);
-        auto arg_dvalues = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 4);
+        auto arg_dkeys = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 1);
+        auto arg_dvalues = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 2);
         
         compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(

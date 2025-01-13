@@ -29,9 +29,10 @@ namespace impl {
 namespace gpu {
 
 namespace {
+using namespace dnnl::impl::prop_kind;
 
 // clang-format off
-constexpr std::map<pk_impl_key_t, std::vector<impl_list_item_t>>
+const std::map<pk_impl_key_t, std::vector<impl_list_item_t>>
         impl_list_map REG_MULTI_HEAD_ATTN_P({
     {{forward}, {
         GPU_INSTANCE_NVIDIA(nvidia::cudnn_multi_head_attn_fwd_t)

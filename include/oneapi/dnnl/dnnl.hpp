@@ -13682,22 +13682,21 @@ struct reduction : public primitive {
 
 /// Multi head attention.
 struct multi_head_attn_forward : public primitive {
-    /// Primitive descriptor for a reduction primitive.
+    /// Primitive descriptor for a multi_head_attn primitive.
     struct primitive_desc : public dnnl::primitive_desc {
         /// Default constructor. Produces an empty object.
         primitive_desc() = default;
 
-        /// Constructs a primitive descriptor for a reduction primitive using
+        /// Constructs a primitive descriptor for a multi_head_attn primitive using
         ///     algorithm specific parameters, source and destination memory
         ///     descriptors.
         ///
         /// @note
-        ///     Destination memory descriptor may be initialized with
-        ///     #dnnl::memory::format_tag::any value of @p format_tag.
+        ///     for cuda
         ///
         /// @param aengine Engine to use.
         /// @param aalgorithm Multi head attention query map mode kind. Possible values:
-        ///     #dnnl_attn_querymap_one2one, #dnnl_attn_querymap_all2one.
+        ///     #attn_querymap_one2one, #attn_querymap_all2one.
         /// @param devSeqLengthsQO_desc Device 1-d array specifying sequence lengths of query, 
         ///     residual, and output sequence data. 
         /// @param devSeqLengthsKV_desc Device 1-d array specifying sequence lengths of key and
@@ -13741,7 +13740,7 @@ struct multi_head_attn_forward : public primitive {
         ///     allowed to fail without throwing an exception. In this case an
         ///     empty object will be produced. This flag is optional and
         ///     defaults to false.
-        primitive_desc(const engine &aengine, algorithm aalgorithm, 
+        primitive_desc(const engine &aengine, prop_kind aprop_kind, algorithm aalgorithm, 
                 const memory::desc &devSeqLengthsQO_desc, const memory::desc &devSeqLengthsKV_desc,
                 const memory::desc &queries_desc, const memory::desc &residuals_desc,
                 const memory::desc &keys_desc, const memory::desc &values_desc,
@@ -13758,13 +13757,81 @@ struct multi_head_attn_forward : public primitive {
 
             dnnl_primitive_desc_t pd = nullptr;
             dnnl_status_t status = dnnl_multi_head_attn_forward_primitive_desc_create(&pd,
-                    aengine.get(), convert_to_c(aalgorithm), num_heads, softmax_scaler, 
-                    devSeqLengthsQO_desc.get(), devSeqLengthsKV_desc.get(), queries_desc.get(), 
-                    q_axes, seqlength_Q, residuals_desc.get(), keys_desc.get(), k_axes, seqlength_K,
+                    aengine.get(), dnnl::convert_to_c(aprop_kind), convert_to_c(aalgorithm), 
+                    num_heads, softmax_scaler, devSeqLengthsQO_desc.get(), 
+                    devSeqLengthsKV_desc.get(), queries_desc.get(), q_axes, seqlength_Q, 
+                    residuals_desc.get(), keys_desc.get(), k_axes, seqlength_K,
                     values_desc.get(), v_axes, seqlength_V, out_desc.get(), o_axes, seqlength_O,
-                    qweight_desc.get(), qbias_desc.get(), kweight_des.get(),c kbias_desc.get(),
+                    qweight_desc.get(), qbias_desc.get(), kweight_desc.get(), kbias_desc.get(),
                     vweight_desc.get(), vbias_desc.get(), oweight_desc.get(), obias_desc.get(),
                     p_currIdx, loWinIdx, hiWinIdx, dropout, postdropout, seed, postseed, attr.get());
+
+            if (!allow_empty) {
+                error::wrap_c_api(
+                        status, err_message_list::pd_creation("multi_head_attn"));
+            }
+            reset(pd);
+        }
+
+        /// Constructs a primitive descriptor for a multi_head_attn primitive using
+        ///     algorithm specific parameters, source and destination memory
+        ///     descriptors.
+        ///
+        /// @note
+        ///     for rocm
+        ///
+        /// @param aengine Engine to use.
+        /// @param queries_desc Query memory descriptor.
+        /// @param residuals_desc Query residual memory descriptor.
+        /// @param keys_desc Key memory descriptor.
+        /// @param values_desc Value memory descriptor.
+        /// @param out_desc Output memory descriptor.
+        /// @param qweight_desc Query projection Weight memory descriptor, can be empty.
+        /// @param qbias_desc Query projection bias memory descriptor, can be empty.
+        /// @param kweight_desc Key projection Weight memory descriptor, can be empty.
+        /// @param kbias_desc Key projection bias memory descriptor, can be empty.
+        /// @param vweight_desc Value projection Weight memory descriptor, can be empty.
+        /// @param vbias_desc Value projection bias memory descriptor, can be empty.
+        /// @param oweight_desc Output projection Weight memory descriptor, can be empty.
+        /// @param obias_desc Output projection bias memory descriptor, can be empty.
+        /// @param num_heads Number of attention heads.
+        /// @param softmax_scaler Softmax smoothing (1.0 >= softmax_scaler >= 0.0) or 
+        ///     sharpening (softmax_scaler > 1.0) coefficient. Negative values are not accepted.
+        /// @param q_axes axes of Query memory, i.e. the layout. Possible value: #{0, 1, 2, 3}.
+        /// @param k_axes axes of Key memory, i.e. the layout. Possible value: #{0, 1, 2, 3}.
+        /// @param v_axes axes of Value memory, i.e. the layout. Possible value: #{0, 1, 2, 3}.
+        /// @param o_axes axes of Output memory, i.e. the layout. Possible value: #{0, 1, 2, 3}.
+        /// @param dropout Possibility of droupout layer.
+        /// @param postdropout Possibility of post droupout layer.
+        /// @param seed Random seed of droupout layer.
+        /// @param postseed Random seed of post droupout layer.
+        /// @param attr Primitive attributes to use. Attributes are optional
+        ///     and default to empty attributes.
+        /// @param allow_empty A flag signifying whether construction is
+        ///     allowed to fail without throwing an exception. In this case an
+        ///     empty object will be produced. This flag is optional and
+        ///     defaults to false.
+        primitive_desc(const engine &aengine, prop_kind aprop_kind, 
+                const memory::desc &queries_desc, const memory::desc &residuals_desc,
+                const memory::desc &keys_desc, const memory::desc &values_desc,
+                const memory::desc &out_desc, const memory::desc &qweight_desc, 
+                const memory::desc &qbias_desc, const memory::desc &kweight_desc, 
+                const memory::desc &kbias_desc, const memory::desc &vweight_desc, 
+                const memory::desc &vbias_desc, const memory::desc &oweight_desc, 
+                const memory::desc &obias_desc, int num_heads, double softmax_scaler, 
+                int* q_axes, int* k_axes, int* v_axes, int* o_axes, 
+                float dropout, float postdropout, unsigned long long seed, 
+                unsigned long long postseed, const primitive_attr &attr = default_attr(),
+                bool allow_empty = false) {
+
+            dnnl_primitive_desc_t pd = nullptr;
+            dnnl_status_t status = dnnl_multi_head_attn_forward_primitive_desc_create_rocm(&pd,
+                    aengine.get(), dnnl::convert_to_c(aprop_kind), num_heads, softmax_scaler, 
+                    queries_desc.get(), q_axes, residuals_desc.get(), keys_desc.get(),
+                    k_axes, values_desc.get(), v_axes, out_desc.get(), o_axes, 
+                    qweight_desc.get(), qbias_desc.get(), kweight_desc.get(), kbias_desc.get(),
+                    vweight_desc.get(), vbias_desc.get(), oweight_desc.get(), obias_desc.get(),
+                    dropout, postdropout, seed, postseed, attr.get());
 
             if (!allow_empty) {
                 error::wrap_c_api(
@@ -13784,17 +13851,160 @@ struct multi_head_attn_forward : public primitive {
     /// Default constructor. Produces an empty object.
     multi_head_attn_forward() = default;
 
-    /// Constructs a reduction primitive.
-    /// @param pd Primitive descriptor for a reduction primitive.
+    /// Constructs a multi_head_attn_forward primitive.
+    /// @param pd Primitive descriptor for a multi_head_attn_forward primitive.
     multi_head_attn_forward(const primitive_desc &pd) : primitive(pd) {}
 
-    /// Constructs a reduction primitive from a cache blob.
-    /// @param pd Primitive descriptor for a reduction primitive.
+    /// Constructs a multi_head_attn_forward primitive from a cache blob.
+    /// @param pd Primitive descriptor for a multi_head_attn_forward primitive.
     /// @param cache_blob Cache blob.
     multi_head_attn_forward(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
         : primitive(pd, cache_blob) {}
 };
 
+/// @addtogroup dnnl_api_multi_head_attn_backward_data Multi head attention
+///
+/// A primitive to compute multi_head_attn_backward_data operation
+///
+/// @sa @ref dev_guide_multi_head_attn_backward_data in developer guide
+///
+/// @{
+
+/// Multi head attention.
+struct multi_head_attn_backward_data : public primitive {
+    /// Primitive descriptor for a multi_head_attn_backward_data primitive.
+    struct primitive_desc : public dnnl::primitive_desc {
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for a multi_head_attn_backward_data 
+        ///     primitive using algorithm specific parameters, source and 
+        ///     destination memory descriptors.
+        ///
+        /// @note
+        ///     Destination memory descriptor may be initialized with
+        ///     #dnnl::memory::format_tag::any value of @p format_tag.
+        ///
+        /// @param aengine Engine to use.
+        /// @param hint_fwd_pd Primitive descriptor for a multi_head_attn 
+        ///     forward propagation primitive. It is used to confingure 
+        ///     parameters of this backward primitive.
+        /// @param attr Primitive attributes to use. Attributes are optional
+        ///     and default to empty attributes.
+        /// @param allow_empty A flag signifying whether construction is
+        ///     allowed to fail without throwing an exception. In this case an
+        ///     empty object will be produced. This flag is optional and
+        ///     defaults to false.
+        primitive_desc(const engine &aengine, 
+                const multi_head_attn_forward::primitive_desc &hint_fwd_pd,
+                const primitive_attr &attr = default_attr(), 
+                bool allow_empty = false) {
+            
+            dnnl_primitive_desc_t pd = nullptr;
+            dnnl_status_t status = dnnl_multi_head_attn_backward_data_primitive_desc_create(&pd,
+                    aengine.get(), hint_fwd_pd.get(), attr.get());
+
+            if (!allow_empty) {
+                error::wrap_c_api(
+                        status, err_message_list::pd_creation("multi_head_attn_backward_data"));
+            }
+            reset(pd);
+        }
+
+        /// Constructs a primitive descriptor for a multi_head_attn primitive from a C
+        /// API primitive descriptor that must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for a multi_head_attn primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : dnnl::primitive_desc(pd, dnnl::primitive::kind::multi_head_attn) {}
+    };
+
+    /// Default constructor. Produces an empty object.
+    multi_head_attn_backward_data() = default;
+
+    /// Constructs a multi_head_attn_backward_data primitive.
+    /// @param pd Primitive descriptor for a multi_head_attn_backward_data primitive.
+    multi_head_attn_backward_data(const primitive_desc &pd) : primitive(pd) {}
+
+    /// Constructs a multi_head_attn_backward_data primitive from a cache blob.
+    /// @param pd Primitive descriptor for a multi_head_attn_backward_data primitive.
+    /// @param cache_blob Cache blob.
+    multi_head_attn_backward_data(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd, cache_blob) {}
+};
+
+/// @addtogroup dnnl_api_multi_head_attn_backward_weights Multi head attention
+///
+/// A primitive to compute multi_head_attn_backward_weights operation
+///
+/// @sa @ref multi_head_attn_backward_weights in developer guide
+///
+/// @{
+
+/// Multi head attention.
+struct multi_head_attn_backward_weights : public primitive {
+    /// Primitive descriptor for a multi_head_attn_backward_weights primitive.
+    struct primitive_desc : public dnnl::primitive_desc {
+        /// Default constructor. Produces an empty object.
+        primitive_desc() = default;
+
+        /// Constructs a primitive descriptor for a multi_head_attn_backward_weights 
+        ///     primitive using algorithm specific parameters, source and 
+        ///     destination memory descriptors.
+        ///
+        /// @note
+        ///     Destination memory descriptor may be initialized with
+        ///     #dnnl::memory::format_tag::any value of @p format_tag.
+        ///
+        /// @param aengine Engine to use.
+        /// @param aalgorithm Multi head attention Weight gradient output mode. 
+        ///     Possible values: #attn_wgrad_add, #attn_wgrad_set.
+        /// @param hint_fwd_pd Primitive descriptor for a multi_head_attn 
+        ///     forward propagation primitive. It is used to confingure 
+        ///     parameters of this backward primitive.
+        /// @param attr Primitive attributes to use. Attributes are optional
+        ///     and default to empty attributes.
+        /// @param allow_empty A flag signifying whether construction is
+        ///     allowed to fail without throwing an exception. In this case an
+        ///     empty object will be produced. This flag is optional and
+        ///     defaults to false.
+        primitive_desc(const engine &aengine, algorithm aalgorithm, 
+                const multi_head_attn_forward::primitive_desc &hint_fwd_pd,
+                const primitive_attr &attr = default_attr(), 
+                bool allow_empty = false) {
+            
+            dnnl_primitive_desc_t pd = nullptr;
+            dnnl_status_t status = dnnl_multi_head_attn_backward_weights_primitive_desc_create(&pd,
+                    aengine.get(), convert_to_c(aalgorithm), hint_fwd_pd.get(), attr.get());
+
+            if (!allow_empty) {
+                error::wrap_c_api(
+                        status, err_message_list::pd_creation("multi_head_attn_backward_weights"));
+            }
+            reset(pd);
+        }
+
+        /// Constructs a primitive descriptor for a multi_head_attn primitive from a C
+        /// API primitive descriptor that must have a matching kind.
+        ///
+        /// @param pd C API primitive descriptor for a multi_head_attn primitive.
+        primitive_desc(dnnl_primitive_desc_t pd)
+            : dnnl::primitive_desc(pd, dnnl::primitive::kind::multi_head_attn) {}
+    };
+
+    /// Default constructor. Produces an empty object.
+    multi_head_attn_backward_weights() = default;
+
+    /// Constructs a multi_head_attn_backward_weights primitive.
+    /// @param pd Primitive descriptor for a multi_head_attn_backward_weights primitive.
+    multi_head_attn_backward_weights(const primitive_desc &pd) : primitive(pd) {}
+
+    /// Constructs a multi_head_attn_backward_weights primitive from a cache blob.
+    /// @param pd Primitive descriptor for a multi_head_attn_backward_weights primitive.
+    /// @param cache_blob Cache blob.
+    multi_head_attn_backward_weights(const primitive_desc &pd, const std::vector<uint8_t> &cache_blob)
+        : primitive(pd, cache_blob) {}
+};
 
 /// @} dnnl_api_primitives
 

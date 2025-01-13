@@ -54,11 +54,13 @@ status_t miopen_multi_head_attn_fwd_t::execute(
         auto arg_states1 = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_dropout_states);
         auto arg_states2 = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_post_dropout_states);
         
-        compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
+        compat::host_task(cgh, [=](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<amd::engine_t *>(
                     hip_stream->engine());
-            auto sc = cuda_sycl_scoped_context_handler_t(sycl_engine);
-            auto handle = hip_stream->get_miopen_handle();
+            auto sc = hip_sycl_scoped_context_handler_t(sycl_engine);
+            auto native_stream = hip_stream->get_underlying_stream();
+            auto miopen_handle = hip_stream->get_miopen_handle(native_stream);
+            auto rocblas_handle = hip_stream->get_rocblas_handle(native_stream);
 
             std::vector<void *> args;
             args.push_back(arg_queries.get_native_pointer(ih));
@@ -82,7 +84,7 @@ status_t miopen_multi_head_attn_fwd_t::execute(
             pd()->set_workspace(arg_workspace.get_native_pointer(ih));
             pd()->set_reservespace(arg_reservespace.get_native_pointer(ih));
 
-            pd()->multi_head_attn_fwd_impl_->execute(handle, args);
+            pd()->multi_head_attn_fwd_impl_->execute(rocblas_handle, miopen_handle, args);
         });
     });
 }
@@ -108,11 +110,13 @@ status_t miopen_multi_head_attn_bwd_data_t::execute(
         auto arg_oweight = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 7);
         auto arg_obias = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 8);
 
-        compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
+        compat::host_task(cgh, [=](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<amd::engine_t *>(
                     hip_stream->engine());
-            auto sc = cuda_sycl_scoped_context_handler_t(sycl_engine);
-            auto handle = hip_stream->get_miopen_handle();
+            auto sc = hip_sycl_scoped_context_handler_t(sycl_engine);
+            auto native_stream = hip_stream->get_underlying_stream();
+            auto miopen_handle = hip_stream->get_miopen_handle(native_stream);
+            auto rocblas_handle = hip_stream->get_rocblas_handle(native_stream);
 
             std::vector<void *> args;
             args.push_back(arg_dout.get_native_pointer(ih));
@@ -120,7 +124,6 @@ status_t miopen_multi_head_attn_bwd_data_t::execute(
             args.push_back(arg_dqueries.get_native_pointer(ih));
             args.push_back(arg_dkeys.get_native_pointer(ih));
             args.push_back(arg_dvalues.get_native_pointer(ih));
-
             args.push_back(arg_qweight.get_native_pointer(ih));
             args.push_back(arg_qbias.get_native_pointer(ih));
             args.push_back(arg_kweight.get_native_pointer(ih));
@@ -130,7 +133,7 @@ status_t miopen_multi_head_attn_bwd_data_t::execute(
             args.push_back(arg_oweight.get_native_pointer(ih));
             args.push_back(arg_obias.get_native_pointer(ih));
 
-            pd()->multi_head_attn_bwd_data_impl_->execute(handle, args);
+            pd()->multi_head_attn_bwd_data_impl_->execute(rocblas_handle, miopen_handle, args);
         });
     });
 }
@@ -166,12 +169,14 @@ status_t miopen_multi_head_attn_bwd_weights_t::execute(
 
         auto arg_reduce_workspace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_reduce);
 
-        compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
+        compat::host_task(cgh, [=](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<amd::engine_t *>(
                     hip_stream->engine());
-            auto sc = cuda_sycl_scoped_context_handler_t(sycl_engine);
-            auto handle = hip_stream->get_miopen_handle();
-
+            auto sc = hip_sycl_scoped_context_handler_t(sycl_engine);
+            auto native_stream = hip_stream->get_underlying_stream();
+            auto miopen_handle = hip_stream->get_miopen_handle(native_stream);
+            auto rocblas_handle = hip_stream->get_rocblas_handle(native_stream);
+            
             std::vector<void *> args;
             args.push_back(arg_queries.get_native_pointer(ih));
             args.push_back(arg_keys.get_native_pointer(ih));
@@ -198,7 +203,7 @@ status_t miopen_multi_head_attn_bwd_weights_t::execute(
 
             args.push_back(arg_reduce_workspace.get_native_pointer(ih));
 
-            pd()->multi_head_attn_bwd_weights_impl_->execute(handle, args);
+            pd()->multi_head_attn_bwd_weights_impl_->execute(rocblas_handle, miopen_handle, args);
         });
     });
 }
