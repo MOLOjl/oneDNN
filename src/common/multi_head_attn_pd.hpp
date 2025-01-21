@@ -23,19 +23,6 @@
 #include "primitive_desc.hpp"
 #include "utils.hpp"
 
-// #define VDISPATCH_ATTN(cond, msg, ...) \
-//     VCONDCHECK(primitive, create, dispatch, multi_head_attn, (cond), \
-//             status::unimplemented, "%s," msg, this->info(engine), \
-//             ##__VA_ARGS__)
-
-// #define VDISPATCH_ATTN_SC(f, msg, ...) \
-//     VCHECK(primitive, create, dispatch, multi_head_attn, (f), "%s," msg, \
-//             this->info(engine), ##__VA_ARGS__)
-
-// #define VDISPATCH_ATTN_IC(cond, msg, ...) \
-//     VCONDCHECK(primitive, create, dispatch, multi_head_attn, (cond), \
-//             status::unimplemented, msg, ##__VA_ARGS__);
-
 namespace dnnl {
 namespace impl {
 
@@ -54,6 +41,15 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
         switch (what) {
             case query::prop_kind:
                 *(prop_kind_t *)result = desc()->prop_kind;
+                break;
+            case query::workspace_md:
+                *(dim_t *)result = (dim_t)(desc()->workSpaceSizeInBytes);
+                break;
+            case query::weights_md:
+                *(dim_t *)result = (dim_t)(desc()->weightSizeInBytes);
+                break;
+            case query::scratchpad_md:
+                *(dim_t *)result = (dim_t)(desc()->reserveSpaceSizeInBytes);
                 break;
             default: return primitive_desc_t::query(what, idx, result);
         }
@@ -143,7 +139,7 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
     }
 
     const memory_desc_t* key_md() const {
-        return &desc()->queries_desc;
+        return &desc()->keys_desc;
     }
 
     const int* key_axes() const {
@@ -151,7 +147,7 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
     }
 
     const memory_desc_t* value_md() const {
-        return &desc()->keys_desc;
+        return &desc()->values_desc;
     }
 
     const int* value_axes() const {
@@ -266,30 +262,6 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
         return desc()->weightSizeInBytes;
     }
 
-    void set_weightspace(void* ws_p) const {
-        desc_.weightspace = ws_p;
-    }
-
-    void* get_weightspace() const {
-        return desc()->weightspace;
-    }
-
-    void set_workspace(void* ws_p) const {
-        desc_.workspace = ws_p;
-    }
-
-    void* get_workspace() const {
-        return desc()->workspace;
-    }
-    
-    void set_reservespace(void* rs_p) const {
-        desc_.reservespace = rs_p;
-    }
-
-    void* get_reservespace() const {
-        return desc()->reservespace;
-    }
-
     void set_offsets(size_t* offsets_) const {
         for(int i=0; i<31; i++)
             desc_.offsets[i] = offsets_[i];
@@ -314,6 +286,66 @@ struct multi_head_attn_pd_t : public primitive_desc_t {
         return nullptr;
     }
 
+    arg_usage_t arg_usage(int arg) const override {
+        int without_res = 0;
+        if(desc_.prop_kind == prop_kind::forward_training 
+                || desc_.prop_kind == prop_kind::forward_inference)
+            without_res = (int)(desc_.residuals_desc.ndims == 0);
+
+        if (arg >= DNNL_ARG_MULTIPLE_SRC
+                && arg < DNNL_ARG_MULTIPLE_SRC + n_inputs() + without_res)
+            return arg_usage_t::input;
+
+        if (arg >= DNNL_ARG_MULTIPLE_DST
+                && arg < DNNL_ARG_MULTIPLE_DST + n_outputs())
+            return arg_usage_t::output;
+
+        if (arg == DNNL_ARG_DST) return arg_usage_t::output;
+
+        if (arg == DNNL_ARG_WORKSPACE) return arg_usage_t::input;
+        if (arg == DNNL_ARG_WEIGHTS) return arg_usage_t::input;
+        if (arg == DNNL_ARG_SCRATCHPAD) return arg_usage_t::input;
+
+        return primitive_desc_t::arg_usage(arg);
+    }
+
+    int n_inputs() const override { 
+        if(desc_.prop_kind == prop_kind::forward_training 
+                || desc_.prop_kind == prop_kind::forward_inference) {
+            int without_res = (int)(desc_.residuals_desc.ndims == 0);
+            if(desc_.devSeqLengthsKV_desc.ndims == 0)
+                return 14 - without_res;  // for rocm forward
+            else
+                return 16 - without_res;  // for cuda forward
+        }
+        else if(desc_.prop_kind == prop_kind::backward_data) {
+            if(desc_.devSeqLengthsKV_desc.ndims == 0)
+                return 11;  // for rocm forward
+            else
+                return 8;  // for cuda forward
+        }
+        else if(desc_.prop_kind == prop_kind::backward_weights) {
+            if(desc_.devSeqLengthsKV_desc.ndims == 0)
+                return 14;  // for rocm forward
+            else
+                return 7;  // for cuda forward
+        }
+        else 
+            return 0; 
+    }
+    
+    int n_outputs() const override { 
+        if(desc_.prop_kind == prop_kind::forward_training 
+                || desc_.prop_kind == prop_kind::forward_inference) 
+            return 1; // for forward
+        else if(desc_.prop_kind == prop_kind::backward_data) 
+            return 3; // for backward data
+        else if(desc_.prop_kind == prop_kind::backward_weights) 
+            return 8; // for backward weight
+        else 
+            return 0; 
+    }
+
 protected:
     mutable multi_head_attn_desc_t desc_;
 
@@ -328,6 +360,7 @@ protected:
             }
             else
                 desc_ = *adesc;
+                
         }
 };
 
@@ -335,3 +368,4 @@ protected:
 } // namespace dnnl
 
 #endif
+             

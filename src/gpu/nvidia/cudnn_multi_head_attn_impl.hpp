@@ -58,10 +58,6 @@ protected:
 	size_t weightSizeInBytes;
 	size_t Dropout_stateSize;
 
-    void* weightspace;
-    void* workspace;
-    void* reservespace;
-
     // these 3 pointers shall not be freed during the lifecycle of this primitive.
     const int* p_currIdx;   // Only used in forward.
     const int* loWinIdx;
@@ -346,7 +342,7 @@ public:
 
     // Buffers will still be used in backward, which is different from other primitives.
     // Will set buffer pointers and size of pd, which will be used in backward.
-    status_t init_scratchpad(impl::engine_t *engine, multi_head_attn_pd_t *pd) {        
+    status_t init_scratchpad(impl::engine_t *engine, multi_head_attn_pd_t *pd) {
         auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(engine);
         impl::stream_t *service_stream;
         CHECK(sycl_engine.get_service_stream(service_stream));
@@ -357,6 +353,12 @@ public:
         CUDNN_EXECUTE_FUNC_V(cudnnGetMultiHeadAttnBuffers, handle, attnDesc, 
                 &weightSizeInBytes, &workSpaceSizeInBytes, &reserveSpaceSizeInBytes);
         
+        pd->set_weightSizeInBytes(weightSizeInBytes);
+        pd->set_workSpaceSizeInBytes(workSpaceSizeInBytes);
+        pd->set_reserveSpaceSizeInBytes(reserveSpaceSizeInBytes + Dropout_stateSize*2);
+        
+        return status::success;
+
         // buffers
         if(weightSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
@@ -381,11 +383,6 @@ public:
                     memory_tracking::names::key_attn_post_dropout_states,
                     Dropout_stateSize, size_t(1));
 		}
-
-        pd->set_weightSizeInBytes(weightSizeInBytes);
-        pd->set_workSpaceSizeInBytes(workSpaceSizeInBytes);
-        pd->set_reserveSpaceSizeInBytes(reserveSpaceSizeInBytes);
-        
         return status::success;
     }
 
@@ -402,14 +399,14 @@ public:
         workspace = args[16];
         reservespace = args[17];
 
-        void* attn_dropout_states = args[18];
-        void* attn_post_dropout_states = args[19];
+        void* attn_dropout_states = (char*)reservespace + reserveSpaceSizeInBytes;
+        void* attn_post_dropout_states = (char*)attn_dropout_states + Dropout_stateSize;
 
         // dropout
         CUDNN_EXECUTE_FUNC_V(cudnnSetDropoutDescriptor, attnDropoutDesc, handle,
                 attndropout, attn_dropout_states, Dropout_stateSize, dropoutseed);
         CUDNN_EXECUTE_FUNC_V(cudnnSetDropoutDescriptor, postDropoutDesc, handle,
-                postattndropout, attn_post_dropout_states, Dropout_stateSize, 
+                postattndropout, attn_post_dropout_states, Dropout_stateSize,
                 postdropoutseed);
 
         // copy to weight buffer
@@ -457,9 +454,6 @@ public:
         reserveSpaceSizeInBytes = pd->get_reserveSpaceSizeInBytes();
         workSpaceSizeInBytes = pd->get_workSpaceSizeInBytes();
         weightSizeInBytes = pd->get_weightSizeInBytes();
-        weightspace = pd->get_weightspace();
-        workspace = pd->get_workspace();
-        reservespace = pd->get_reservespace();
 
         loWinIdx = pd->loWinIdxArray();
         hiWinIdx = pd->hiWinIdxArray();
@@ -474,9 +468,10 @@ public:
                 dkeys = args[5], keys = args[6], dvalues = args[7],
                 values = args[8];
 
-        // attnDesc, loWinIdx, hiWinIdx, SeqDataDescs, weightSizeInBytes, weightspace
-        // workSpaceSizeInBytes, workspace, reserveSpaceSizeInBytes, reservespace
-        
+        weightspace = args[9];
+        workspace = args[10];
+        reservespace = args[11];
+
         // backward data
         CUDNN_EXECUTE_FUNC_V(cudnnMultiHeadAttnBackwardData, handle, attnDesc, loWinIdx, 
                 hiWinIdx, (int*)devSeqLengthsQO, (int*)devSeqLengthsKV, SeqDataDescs[io::o],
@@ -523,9 +518,6 @@ public:
         reserveSpaceSizeInBytes = pd->get_reserveSpaceSizeInBytes();
         workSpaceSizeInBytes = pd->get_workSpaceSizeInBytes();
         weightSizeInBytes = pd->get_weightSizeInBytes();
-        weightspace = pd->get_weightspace();
-        workspace = pd->get_workspace();
-        reservespace = pd->get_reservespace();
 
         loWinIdx = pd->loWinIdxArray();
         hiWinIdx = pd->hiWinIdxArray();
@@ -541,6 +533,10 @@ public:
         void* dweightbias[8];
         for(int i=5; i<5+8; i++)
             dweightbias[i-5] = args[i];
+
+        weightspace = args[13];
+        workspace = args[14];
+        reservespace = args[15];
 
         // backward weight
         CUDNN_EXECUTE_FUNC_V(cudnnMultiHeadAttnBackwardWeights, handle, attnDesc, addGrad,

@@ -50,12 +50,16 @@ status_t cudnn_multi_head_attn_fwd_t::execute(
         auto arg_vbias = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 11);
         auto arg_oweight = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 12);
         auto arg_obias = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_SRC + 13);
+
+        auto arg_workspace = CTX_IN_SYCL_MEMORY(DNNL_ARG_WORKSPACE);
+        auto arg_weightspace = CTX_IN_SYCL_MEMORY(DNNL_ARG_WEIGHTS);
+        auto arg_reservespace = CTX_IN_SYCL_MEMORY(DNNL_ARG_SCRATCHPAD);
         
-        auto arg_weightspace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_weight);
-        auto arg_workspace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_workspace);
-        auto arg_reservespace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_reservespace);
-        auto arg_states1 = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_dropout_states);
-        auto arg_states2 = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_post_dropout_states);
+        // auto arg_weightspace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_weight);
+        // auto arg_workspace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_workspace);
+        // auto arg_reservespace = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_reservespace);
+        // auto arg_states1 = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_dropout_states);
+        // auto arg_states2 = CTX_SCRATCH_SYCL_MEMORY(memory_tracking::names::key_attn_post_dropout_states);
         
         compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(
@@ -85,9 +89,9 @@ status_t cudnn_multi_head_attn_fwd_t::execute(
             args.push_back(arg_states1.get_native_pointer(ih));
             args.push_back(arg_states2.get_native_pointer(ih));
 
-            pd()->set_weightspace(arg_weightspace.get_native_pointer(ih));
-            pd()->set_workspace(arg_workspace.get_native_pointer(ih));
-            pd()->set_reservespace(arg_reservespace.get_native_pointer(ih));
+            args.push_back(arg_workspace.get_native_pointer(ih));
+            args.push_back(arg_weightspace.get_native_pointer(ih));
+            args.push_back(arg_reservespace.get_native_pointer(ih));
 
             pd()->multi_head_attn_fwd_impl_->execute(handle, args);
         });
@@ -111,7 +115,11 @@ status_t cudnn_multi_head_attn_bwd_data_t::execute(
         auto arg_dqueries = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 0);
         auto arg_dkeys = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 1);
         auto arg_dvalues = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 2);
-        
+
+        auto arg_workspace = CTX_IN_SYCL_MEMORY(DNNL_ARG_WORKSPACE);
+        auto arg_weightspace = CTX_IN_SYCL_MEMORY(DNNL_ARG_WEIGHTS);
+        auto arg_reservespace = CTX_IN_SYCL_MEMORY(DNNL_ARG_SCRATCHPAD);
+
         compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(
                     cuda_stream->engine());
@@ -128,6 +136,10 @@ status_t cudnn_multi_head_attn_bwd_data_t::execute(
             args.push_back(arg_keys.get_native_pointer(ih));
             args.push_back(arg_dvalues.get_native_pointer(ih));
             args.push_back(arg_values.get_native_pointer(ih));
+
+            args.push_back(arg_workspace.get_native_pointer(ih));
+            args.push_back(arg_weightspace.get_native_pointer(ih));
+            args.push_back(arg_reservespace.get_native_pointer(ih));
 
             pd()->multi_head_attn_bwd_data_impl_->execute(handle, args);
         });
@@ -155,7 +167,11 @@ status_t cudnn_multi_head_attn_bwd_weights_t::execute(
         auto arg_dvbias = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 5);
         auto arg_doweight = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 6);
         auto arg_dobias = CTX_IN_SYCL_MEMORY(DNNL_ARG_MULTIPLE_DST + 7);
-        
+
+        auto arg_workspace = CTX_IN_SYCL_MEMORY(DNNL_ARG_WORKSPACE);
+        auto arg_weightspace = CTX_IN_SYCL_MEMORY(DNNL_ARG_WEIGHTS);
+        auto arg_reservespace = CTX_IN_SYCL_MEMORY(DNNL_ARG_SCRATCHPAD);
+
         compat::host_task(cgh, [=, this](const compat::interop_handle &ih) {
             auto &sycl_engine = *utils::downcast<nvidia::engine_t *>(
                     cuda_stream->engine());
@@ -177,6 +193,10 @@ status_t cudnn_multi_head_attn_bwd_weights_t::execute(
             args.push_back(arg_dvbias.get_native_pointer(ih));
             args.push_back(arg_doweight.get_native_pointer(ih));
             args.push_back(arg_dobias.get_native_pointer(ih));
+
+            args.push_back(arg_workspace.get_native_pointer(ih));
+            args.push_back(arg_weightspace.get_native_pointer(ih));
+            args.push_back(arg_reservespace.get_native_pointer(ih));
 
             pd()->multi_head_attn_bwd_weights_impl_->execute(handle, args);
         });

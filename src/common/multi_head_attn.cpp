@@ -133,7 +133,7 @@ status_t dnnl_multi_head_attn_forward_primitive_desc_create_rocm(
 
     if(residuals_desc != nullptr)
         attn_desc.residuals_desc = *residuals_desc;
-
+    
     attn_desc.keys_desc = *keys_desc;
     attn_desc.k_axes = k_axes;
     attn_desc.values_desc = *values_desc;
@@ -169,11 +169,8 @@ status_t dnnl_multi_head_attn_forward_primitive_desc_create_rocm(
 
 status_t dnnl_multi_head_attn_backward_data_primitive_desc_create(
         primitive_desc_iface_t **primitive_desc_iface, engine_t *engine,
-        prop_kind_t prop_kind, const primitive_desc_iface_t *hint_fwd_pd,
+        const primitive_desc_iface_t *hint_fwd_pd,
         const primitive_attr_t *attr) {
-
-    if (!one_of(prop_kind, forward_inference, forward_training))
-        return invalid_arguments;
 
     auto attn_desc = multi_head_attn_desc_t();
     attn_desc.primitive_kind = primitive_kind::multi_head_attn;
@@ -186,12 +183,8 @@ status_t dnnl_multi_head_attn_backward_data_primitive_desc_create(
 
 status_t dnnl_multi_head_attn_backward_weights_primitive_desc_create(
         primitive_desc_iface_t **primitive_desc_iface, engine_t *engine,
-        prop_kind_t prop_kind, alg_kind_t WgradMode_alg, 
-        const primitive_desc_iface_t *hint_fwd_pd,
+        alg_kind_t WgradMode_alg, const primitive_desc_iface_t *hint_fwd_pd,
         const primitive_attr_t *attr) {
-
-    if (!one_of(prop_kind, forward_inference, forward_training))
-        return invalid_arguments;
 
     auto attn_desc = multi_head_attn_desc_t();
     attn_desc.primitive_kind = primitive_kind::multi_head_attn;

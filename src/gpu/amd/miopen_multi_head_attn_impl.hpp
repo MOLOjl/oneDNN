@@ -70,9 +70,6 @@ protected:
 	size_t workSpaceSizeInBytes;
 	size_t Dropout_stateSize;
 
-    void* workspace;
-    void* reservespace;
-
     bool is_fwd;
     bool is_bwd_data;
     bool is_bwd_weight;
@@ -121,16 +118,7 @@ protected:
     size_t ddAV_offset;
     size_t ddAO_offset;
 public:
-    virtual ~miopen_multi_head_attn_impl_base_t() {
-        if(attnDropoutDesc != nullptr){
-		    MIOPEN_EXECUTE_FUNC_V(miopenDestroyDropoutDescriptor, attnDropoutDesc);
-            attnDropoutDesc = nullptr;
-        }
-        if(postDropoutDesc != nullptr){
-            MIOPEN_EXECUTE_FUNC_V(miopenDestroyDropoutDescriptor, postDropoutDesc);
-            attnDropoutDesc = nullptr;
-        }
-    }
+    virtual ~miopen_multi_head_attn_impl_base_t() { return ; };
 
     bool with_reserveSpace() const { return reserveSpaceSizeInBytes > 0; }
 
@@ -235,7 +223,7 @@ public:
             if(idx == io::o){
                 if(embed_dim != md->dims[ndims_qkvo-1])
                     return status::invalid_arguments;
-                if(seq_length_L == md->dims[0])
+                if(seq_length_L != md->dims[0])
                     return status::invalid_arguments;
             }
 
@@ -314,7 +302,7 @@ public:
                     dim_wb[0] = dim_wb[0]*wb_md.dims[j];
             }
             
-            if(dim_wb[0] != embed_dim || dim_wb[0]%num_heads != 0)
+            if(dim_wb[0]!=embed_dim || dim_wb[0]%num_heads != 0)
                 return status::invalid_arguments;
 
             if(i == 0 && dim_wb[1] != embed_dim)
@@ -365,6 +353,15 @@ public:
         MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, qo_desc);
         MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, kv_desc);
         MIOPEN_EXECUTE_FUNC_V(miopenDestroyTensorDescriptor, bias_desc);
+
+        if(attnDropoutDesc != nullptr){
+		    MIOPEN_EXECUTE_FUNC_V(miopenDestroyDropoutDescriptor, attnDropoutDesc);
+            attnDropoutDesc = nullptr;
+        }
+        if(postDropoutDesc != nullptr){
+            MIOPEN_EXECUTE_FUNC_V(miopenDestroyDropoutDescriptor, postDropoutDesc);
+            attnDropoutDesc = nullptr;
+        }
     }
 
     status_t init(impl::engine_t *engine, multi_head_attn_pd_t *pd) override {
@@ -395,18 +392,6 @@ public:
         // MIOPEN_EXECUTE_FUNC_V(miopenSet4dTensorDescriptor, midtensor_desc, midtensor_dtype,
         //         batch_size*num_heads*seq_length_L, seq_length_S, 1, 1);
 
-		// dropouts
-		MIOPEN_EXECUTE_FUNC_V(miopenCreateDropoutDescriptor, &attnDropoutDesc);
-		MIOPEN_EXECUTE_FUNC_V(miopenCreateDropoutDescriptor, &postDropoutDesc);
-        pd->set_dropDesc(0, attnDropoutDesc);
-        pd->set_dropDesc(1, postDropoutDesc);
-
-        size_t size1, size2;
-        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &size1);
-        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &size2);
-        reserveSpaceSizeInBytes = size1 + size2;
-        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetStatesSize, handle, &Dropout_stateSize);
-
         MIOPEN_EXECUTE_FUNC_V(miopenCreateTensorDescriptor, &qo_desc);
         MIOPEN_EXECUTE_FUNC_V(miopenSet4dTensorDescriptor, qo_desc, qo_dtype,
                 1, seq_length_L, batch_size, embed_dim);
@@ -417,6 +402,17 @@ public:
         MIOPEN_EXECUTE_FUNC_V(miopenSet4dTensorDescriptor, bias_desc, qo_dtype,
                 1, 1, 1, embed_dim);
 
+		// dropouts
+		MIOPEN_EXECUTE_FUNC_V(miopenCreateDropoutDescriptor, &attnDropoutDesc);
+		MIOPEN_EXECUTE_FUNC_V(miopenCreateDropoutDescriptor, &postDropoutDesc);
+        pd->set_dropDesc(0, attnDropoutDesc);
+        pd->set_dropDesc(1, postDropoutDesc);
+
+        size_t size1, size2;
+        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &size1);
+        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &size2);
+        MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetStatesSize, handle, &Dropout_stateSize);
+        reserveSpaceSizeInBytes = size1 + size2 + Dropout_stateSize*2;
         return status::success;
     }
 
@@ -568,11 +564,20 @@ public:
         else {
             workSpaceSizeInBytes = o_proj_offset + o_proj;
         }
+
+        pd->set_offsets(offsets.data());
     }
 
     // Scratchpad will still be used in backward, which is different from other primitives.
     // Will set reservedSpace and state of droupouts, which will be used in backward.
     status_t init_scratchpad(multi_head_attn_pd_t *pd) {
+        get_workspace(pd);
+        
+        pd->set_workSpaceSizeInBytes(workSpaceSizeInBytes);
+        pd->set_reserveSpaceSizeInBytes(reserveSpaceSizeInBytes);
+
+        return status::success;
+
         if(reserveSpaceSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_reservespace, reserveSpaceSizeInBytes,
@@ -588,20 +593,15 @@ public:
                     Dropout_stateSize, size_t(1));
 		}
 
-        get_workspace(pd);
         if(workSpaceSizeInBytes > 0 && is_fwd)
             pd->scratchpad_registry().registrar().book(
                     memory_tracking::names::key_attn_workspace, workSpaceSizeInBytes,
                     size_t(1));
-
-        pd->set_workSpaceSizeInBytes(workSpaceSizeInBytes);
-        pd->set_reserveSpaceSizeInBytes(reserveSpaceSizeInBytes);
-
-        return status::success;
     }
 
-    void set_batch_matrices(void* workspace, void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_ASb, 
-            void*& d_AV, void*& d_AO) const {
+    void set_batch_matrices(void* workspace, void*& d_AQ, size_t Qsize, 
+            void*& d_AK, size_t Ksize, void*& d_AS, void*& d_ASb, size_t Ssize, 
+            void*& d_AV, size_t Vsize, void*& d_AO, size_t Osize) const {
 
         void **h_AQ, **h_AK, **h_AS, **h_ASb, **h_AV, **h_AO;
         int batch_count = batch_size*num_heads;
@@ -612,13 +612,13 @@ public:
         h_AV = (void**)std::malloc(sizeof(void*) * batch_count);
         h_AO = (void**)std::malloc(sizeof(void*) * batch_count);
         for(int i=0; i<batch_count; i++) {
-            h_AQ[i] = (char*)workspace + q_proj_t_offset + sizeof(void*)*i;
-            h_AK[i] = (char*)workspace + k_proj_t_offset + sizeof(void*)*i;
-            h_AS[i] = (char*)workspace + mid_s_offset + sizeof(void*)*i;
+            h_AQ[i] = (char*)workspace + q_proj_t_offset + Qsize*i;
+            h_AK[i] = (char*)workspace + k_proj_t_offset + Ksize*i;
+            h_AS[i] = (char*)workspace + mid_s_offset + Ssize*i;
             // when prop_kind is prop_kind::forward_inference, s_buffer_offset eqs to mid_s_offset.
-            h_ASb[i] = (char*)workspace + s_buffer_offset + sizeof(void*)*i;
-            h_AV[i] = (char*)workspace + v_proj_t_offset + sizeof(void*)*i;
-            h_AO[i] = (char*)workspace + o_proj_t_offset + sizeof(void*)*i;
+            h_ASb[i] = (char*)workspace + s_buffer_offset + Ssize*i;
+            h_AV[i] = (char*)workspace + v_proj_t_offset + Vsize*i;
+            h_AO[i] = (char*)workspace + o_proj_t_offset + Osize*i;
         }
 
         d_AQ = (char*)workspace + dAQ_offset;
@@ -628,17 +628,17 @@ public:
         d_AV = (char*)workspace + dAV_offset;
         d_AO = (char*)workspace + dAO_offset;
 
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_AQ, (HIPdeviceptr)h_AQ, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_AQ, (HIPdeviceptr)h_AQ, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_AK, (HIPdeviceptr)h_AK, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_AK, (HIPdeviceptr)h_AK, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_AS, (HIPdeviceptr)h_AS, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_AS, (HIPdeviceptr)h_AS, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_ASb, (HIPdeviceptr)h_ASb, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_ASb, (HIPdeviceptr)h_ASb, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_AV, (HIPdeviceptr)h_AV, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_AV, (HIPdeviceptr)h_AV, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_AO, (HIPdeviceptr)h_AO, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_AO, (HIPdeviceptr)h_AO, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
 
         free(h_AQ);
@@ -660,14 +660,13 @@ public:
         void* weightbias[8];
         for(int i=5; i<5+8; i++)
             weightbias[i-5] = args[i];
-        // buffers, to avoid change non-const variable 'workspace', 
-        // declare a local variable with the same name.
+
         void* workspace = args[13];
         void* reservespace = args[14];
 
-        void* attn_dropout_states = args[15];
-        void* attn_post_dropout_states = args[16];
-
+        void* attn_dropout_states = (char*)reservespace + reserveSpaceSizeInBytes - 2*Dropout_stateSize;
+        void* attn_post_dropout_states = (char*)attn_dropout_states + Dropout_stateSize;
+        
         // dropout
         MIOPEN_EXECUTE_FUNC_V(miopenSetDropoutDescriptor, attnDropoutDesc, miopen_handle,
                 attndropout, attn_dropout_states, Dropout_stateSize, dropoutseed, false, 
@@ -754,7 +753,12 @@ public:
         // Q(batch*h, seqlen_L, embed_dim/h) x K(batch*h, seqlen_S, embed_dim/h)^T
         // alloc and set matrices array
         void *d_AQ, *d_AK, *d_AS, *d_ASb, *d_AV, *d_AO;
-        set_batch_matrices(workspace, d_AQ, d_AK, d_AS, d_ASb, d_AV, d_AO);
+        size_t QOi_proj_bsize = dtype_bytesize[io::q] * seq_length_L * head_dim;
+        size_t KVi_proj_bsize = dtype_bytesize[io::k] * seq_length_S * head_dim;
+        size_t Si_bsize = dtype_bytesize[io::q] * seq_length_S * seq_length_L;
+        
+        set_batch_matrices(workspace, d_AQ, QOi_proj_bsize, d_AK, KVi_proj_bsize, d_AS, d_ASb, 
+                Si_bsize, d_AV, KVi_proj_bsize, d_AO, QOi_proj_bsize);
         ROCBLAS_EXECUTE_FUNC(rocblas_gemm_batched_ex, rocblas_handle, 
                 rocblas_operation::rocblas_operation_transpose, 
                 rocblas_operation::rocblas_operation_none, 
@@ -764,7 +768,7 @@ public:
                 d_AS, data_types[io::k], seq_length_S, 
                 d_AS, data_types[io::k], seq_length_S, batch_size*num_heads,
                 compute_type, rocblas_gemm_algo_standard, 0, 0);
-
+              
         // softmax
         void* mid_tensor_s = (char*)workspace + mid_s_offset;
         MIOPEN_EXECUTE_FUNC_V(miopenSoftmaxForward, miopen_handle, alpha, midtensor_desc, 
@@ -780,7 +784,7 @@ public:
         size_t attn_reserve_size;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, midtensor_desc, &attn_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutForward, miopen_handle, attnDropoutDesc, 
-                nullptr, midtensor_desc, mid_tensor_s, midtensor_desc, s_buffer, 
+                midtensor_desc, midtensor_desc, mid_tensor_s, midtensor_desc, s_buffer, 
                 reservespace, attn_reserve_size);
         
         // S(batch*h, seqlen_L, seqlen_S) x V(batch*h, seq_length_S, embed_dim/h)
@@ -816,12 +820,12 @@ public:
             MIOPEN_EXECUTE_FUNC_V(miopenOpTensor, miopen_handle, miopenTensorOpAdd, 
                     &f32_alpha, qo_desc, out, &f32_alpha, bias_desc, weightbias[7], 
                     &f32_beta, qo_desc, out);
-
+                    
         // post dropout
         size_t post_reserve_size;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &post_reserve_size);
         void* post_reservespace = (char*)reservespace + attn_reserve_size;
-        MIOPEN_EXECUTE_FUNC_V(miopenDropoutForward, miopen_handle, postDropoutDesc, nullptr, 
+        MIOPEN_EXECUTE_FUNC_V(miopenDropoutForward, miopen_handle, postDropoutDesc, qo_desc, 
                 qo_desc, out, qo_desc, out, post_reservespace, post_reserve_size);
 
         if(residuals)
@@ -872,8 +876,6 @@ public:
 
         reserveSpaceSizeInBytes = pd->get_reserveSpaceSizeInBytes();
         workSpaceSizeInBytes = pd->get_workSpaceSizeInBytes();
-        workspace = pd->get_workspace();
-        reservespace = pd->get_reservespace();
 
         const size_t* offsets = pd->get_offsets();
         // forward
@@ -913,8 +915,8 @@ public:
         return status::success;
     }
 
-    void set_batch_matrices_bw(void* workspace, void*& d_dAQ, void*& d_dAK, 
-            void*& d_dAS, void*& d_dAV, void*& d_dAO) const {
+    void set_batch_matrices_bw(void* workspace, void*& d_dAQ, size_t Qsize, void*& d_dAK, size_t Ksize, 
+            void*& d_dAS, size_t Ssize, void*& d_dAV, size_t Vsize, void*& d_dAO, size_t Osize) const {
         
         void **h_dAQ, **h_dAK, **h_dAS, **h_dAV, **h_dAO;
         int batch_count = batch_size*num_heads;
@@ -924,11 +926,11 @@ public:
         h_dAV = (void**)std::malloc(sizeof(void*) * batch_count);
         h_dAO = (void**)std::malloc(sizeof(void*) * batch_count);
         for(int i=0; i<batch_count; i++) {
-            h_dAQ[i] = (char*)workspace + dqproj_t_offset + sizeof(void*)*i;
-            h_dAK[i] = (char*)workspace + dkproj_t_offset + sizeof(void*)*i;
-            h_dAS[i] = (char*)workspace + ds_offset + sizeof(void*)*i;
-            h_dAV[i] = (char*)workspace + dvproj_t_offset + sizeof(void*)*i;
-            h_dAO[i] = (char*)workspace + doproj_t_offset + sizeof(void*)*i;
+            h_dAQ[i] = (char*)workspace + dqproj_t_offset + Qsize*i;
+            h_dAK[i] = (char*)workspace + dkproj_t_offset + Ksize*i;
+            h_dAS[i] = (char*)workspace + ds_offset + Ssize*i;
+            h_dAV[i] = (char*)workspace + dvproj_t_offset + Vsize*i;
+            h_dAO[i] = (char*)workspace + doproj_t_offset + Osize*i;
         }
 
         d_dAQ = (char*)workspace + ddAQ_offset;
@@ -937,15 +939,15 @@ public:
         d_dAV = (char*)workspace + ddAV_offset;
         d_dAO = (char*)workspace + ddAO_offset;
 
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAQ, (HIPdeviceptr)h_dAQ, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAQ, (HIPdeviceptr)h_dAQ, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAK, (HIPdeviceptr)h_dAK, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAK, (HIPdeviceptr)h_dAK, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAS, (HIPdeviceptr)h_dAS, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAS, (HIPdeviceptr)h_dAS, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAV, (HIPdeviceptr)h_dAV, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAV, (HIPdeviceptr)h_dAV, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAO, (HIPdeviceptr)h_dAO, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAO, (HIPdeviceptr)h_dAO, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
 
         free(h_dAQ);
@@ -955,7 +957,7 @@ public:
         free(h_dAO);
     }
 
-    void get_batch_matrices(void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) const {
+    void get_batch_matrices(void* workspace, void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) const {
         d_AQ = (char*)workspace + dAQ_offset;
         d_AK = (char*)workspace + dAK_offset;
         d_AS = (char*)workspace + dAS_offset;
@@ -971,6 +973,9 @@ public:
         void* weightbias[8];
         for(int i=4; i<4+8; i++)
             weightbias[i-4] = args[i];
+        
+        void* workspace = args[12];
+        void* reservespace = args[13];
 
         const void *alpha = get_gemm_alpha();
         const void *beta = get_gemm_beta();
@@ -983,12 +988,12 @@ public:
         void* post_reservespace = (char*)reservespace + attn_reserve_size;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &post_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, postDropoutDesc, 
-                nullptr, qo_desc, dout, qo_desc, dout_buffer, post_reservespace, 
+                qo_desc, qo_desc, dout, qo_desc, dout_buffer, post_reservespace, 
                 post_reserve_size);
         
         void* do_proj = weight_enabled[6] ? doproj_offset + (char*)workspace : dout_buffer;
         void* do_proj_tran = (char*)workspace + doproj_t_offset;
-
+        return ;
         // backward o weight, (seq_length_L, batch_size, embed_dim) x (embed_dim, embed_dim)
         if(weight_enabled[6])
             ROCBLAS_EXECUTE_FUNC(rocblas_gemm_ex, rocblas_handle, 
@@ -1002,16 +1007,22 @@ public:
                     compute_type, rocblas_gemm_algo_standard, -1, 0);
 
         // transpose do_proj (and reshape to) -> {batch_size*h, seq_length_L, embed_dim/h}
-        size_t dims_do_proj_tran[3] = {(size_t)seq_length_L, (size_t)(batch_size*num_heads), (size_t)embed_dim/num_heads};
+        size_t dims_do_proj_tran[3] = {(size_t)seq_length_L, (size_t)(batch_size*num_heads), 
+                (size_t)embed_dim/num_heads};
         hip_custom::transpose(dtype_bytesize[io::v], do_proj, do_proj_tran, dims_do_proj_tran, 3, 0, 1);
 
         int head_dim = embed_dim / num_heads;
 
         void *d_AQ, *d_AK, *d_AS, *d_AV, *d_AO;
-        get_batch_matrices(d_AQ, d_AK, d_AS, d_AV, d_AO);
+        get_batch_matrices(workspace, d_AQ, d_AK, d_AS, d_AV, d_AO);
 
         void *d_dAQ, *d_dAK, *d_dAS, *d_dAV, *d_dAO;
-        set_batch_matrices_bw(workspace, d_dAQ, d_dAK, d_dAS, d_dAV, d_dAO);    // set for backward
+        size_t QOi_proj_bsize = dtype_bytesize[io::q] * seq_length_L * head_dim;
+        size_t KVi_proj_bsize = dtype_bytesize[io::k] * seq_length_S * head_dim;
+        size_t Si_bsize = dtype_bytesize[io::q] * seq_length_S * seq_length_L;
+
+        set_batch_matrices_bw(workspace, d_dAQ, QOi_proj_bsize, d_dAK, KVi_proj_bsize, 
+                d_dAS, Si_bsize, d_dAV, KVi_proj_bsize, d_dAO, QOi_proj_bsize);    // set for backward
 
         // dO(batch*h, seqlen_L, embed_dim/h) x V(batch*h, seq_length_S, embed_dim/h)^T
         ROCBLAS_EXECUTE_FUNC(rocblas_gemm_batched_ex, rocblas_handle, 
@@ -1038,7 +1049,7 @@ public:
         void* ds_buffer = ds_offset + (char*)workspace;
         void* attn_reservespace = (char*)reservespace;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, attnDropoutDesc, 
-                nullptr, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer, 
+                midtensor_desc, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer, 
                 attn_reservespace, attn_reserve_size);
 
         void* mid_tensor_s = (char*)workspace + mid_s_offset;
@@ -1073,13 +1084,13 @@ public:
                 d_dAK, data_types[io::k], head_dim, 
                 d_dAK, data_types[io::k], head_dim, batch_size*num_heads, 
                 compute_type, rocblas_gemm_algo_standard, 0, 0);
-
+    
         void* dk_proj = weight_enabled[2] ? dkproj_offset + (char*)workspace : dkeys;
         void* dk_proj_tran = (char*)workspace + dkproj_t_offset;
         // transpose dk_proj (and reshape to) -> {seq_length_S, batch_size, embed_dim/h*h}
         size_t dims_dk_proj_tran[3] = {(size_t)(batch_size*num_heads), (size_t)seq_length_S, (size_t)head_dim};
         hip_custom::transpose(dtype_bytesize[io::k], dk_proj_tran, dk_proj, dims_dk_proj_tran, 3, 0, 1);
-
+        // return ;
         // backward k weight, (seq_length_S, batch_size, embed_dim) x (embed_dim, kdim)
         if(weight_enabled[2])
             ROCBLAS_EXECUTE_FUNC(rocblas_gemm_ex, rocblas_handle, 
@@ -1153,8 +1164,6 @@ public:
 
         reserveSpaceSizeInBytes = pd->get_reserveSpaceSizeInBytes();
         workSpaceSizeInBytes = pd->get_workSpaceSizeInBytes();
-        workspace = pd->get_workspace();
-        reservespace = pd->get_reservespace();
 
         const size_t* offsets = pd->get_offsets();
         // forward
@@ -1240,7 +1249,7 @@ public:
         return status::success;
     }
 
-    void get_batch_matrices(void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) const {
+    void get_batch_matrices(void* workspace, void*& d_AQ, void*& d_AK, void*& d_AS, void*& d_AV, void*& d_AO) const {
         d_AQ = (char*)workspace + dAQ_offset;
         d_AK = (char*)workspace + dAK_offset;
         d_AS = (char*)workspace + dAS_offset;
@@ -1248,8 +1257,8 @@ public:
         d_AO = (char*)workspace + dAO_offset;
     }
 
-    void set_batch_matrices_bw(void* workspace, void*& d_dAQ, void*& d_dAK, 
-            void*& d_dAS, void*& d_dAV, void*& d_dAO) const {
+    void set_batch_matrices_bw(void* workspace, void*& d_dAQ, size_t Qsize, void*& d_dAK, size_t Ksize,
+            void*& d_dAS, size_t Ssize, void*& d_dAV, size_t Vsize, void*& d_dAO, size_t Osize) const {
         
         void **h_dAQ, **h_dAK, **h_dAS, **h_dAV, **h_dAO;
         int batch_count = batch_size*num_heads;
@@ -1259,11 +1268,11 @@ public:
         h_dAV = (void**)std::malloc(sizeof(void*) * batch_count);
         h_dAO = (void**)std::malloc(sizeof(void*) * batch_count);
         for(int i=0; i<batch_count; i++) {
-            h_dAQ[i] = (char*)workspace + dqproj_t_offset + sizeof(void*)*i;
-            h_dAK[i] = (char*)workspace + dkproj_t_offset + sizeof(void*)*i;
-            h_dAS[i] = (char*)workspace + ds_offset + sizeof(void*)*i;
-            h_dAV[i] = (char*)workspace + dvproj_t_offset + sizeof(void*)*i;
-            h_dAO[i] = (char*)workspace + doproj_t_offset + sizeof(void*)*i;
+            h_dAQ[i] = (char*)workspace + dqproj_t_offset + Qsize*i;
+            h_dAK[i] = (char*)workspace + dkproj_t_offset + Ksize*i;
+            h_dAS[i] = (char*)workspace + ds_offset + Ssize*i;
+            h_dAV[i] = (char*)workspace + dvproj_t_offset + Vsize*i;
+            h_dAO[i] = (char*)workspace + doproj_t_offset + Osize*i;
         }
 
         d_dAQ = (char*)workspace + ddAQ_offset;
@@ -1272,15 +1281,15 @@ public:
         d_dAV = (char*)workspace + ddAV_offset;
         d_dAO = (char*)workspace + ddAO_offset;
 
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAQ, (HIPdeviceptr)h_dAQ, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAQ, (HIPdeviceptr)h_dAQ, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAK, (HIPdeviceptr)h_dAK, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAK, (HIPdeviceptr)h_dAK, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAS, (HIPdeviceptr)h_dAS, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAS, (HIPdeviceptr)h_dAS, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAV, (HIPdeviceptr)h_dAV, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAV, (HIPdeviceptr)h_dAV, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
-        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)&d_dAO, (HIPdeviceptr)h_dAO, 
+        HIP_EXECUTE_FUNC(hipMemcpy, (HIPdeviceptr)d_dAO, (HIPdeviceptr)h_dAO, 
                 batch_count*sizeof(void*), hipMemcpyDefault);
 
         free(h_dAQ);
@@ -1304,7 +1313,9 @@ public:
         for(int i=12; i<12+8; i++)
             dweightbias[i-12] = args[i];
 
-        void* reduce_workspace = args[20];
+        void* workspace = args[20];
+        void* reservespace = args[21];
+        void* reduce_workspace = args[22];
 
         const void *alpha = get_gemm_alpha();
         const void *beta = get_gemm_beta();
@@ -1317,7 +1328,7 @@ public:
         void* post_reservespace = (char*)reservespace + attn_reserve_size;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutGetReserveSpaceSize, qo_desc, &post_reserve_size);
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, postDropoutDesc, 
-                nullptr, qo_desc, dout, qo_desc, dout_buffer, post_reservespace, 
+                qo_desc, qo_desc, dout, qo_desc, dout_buffer, post_reservespace, 
                 post_reserve_size);
         
         // bias have no influence on gradient. reduce to get dbias.
@@ -1361,10 +1372,15 @@ public:
         int head_dim = embed_dim / num_heads;
 
         void *d_AQ, *d_AK, *d_AS, *d_AV, *d_AO;
-        get_batch_matrices(d_AQ, d_AK, d_AS, d_AV, d_AO);
+        get_batch_matrices(workspace, d_AQ, d_AK, d_AS, d_AV, d_AO);
 
         void *d_dAQ, *d_dAK, *d_dAS, *d_dAV, *d_dAO;
-        set_batch_matrices_bw(workspace, d_dAQ, d_dAK, d_dAS, d_dAV, d_dAO);    // set for backward
+        size_t QOi_proj_bsize = dtype_bytesize[io::q] * seq_length_L * head_dim;
+        size_t KVi_proj_bsize = dtype_bytesize[io::k] * seq_length_S * head_dim;
+        size_t Si_bsize = dtype_bytesize[io::q] * seq_length_S * seq_length_L;
+        
+        set_batch_matrices_bw(workspace, d_dAQ, QOi_proj_bsize, d_dAK, KVi_proj_bsize, 
+                d_dAS, Si_bsize, d_dAV, KVi_proj_bsize, d_dAO, QOi_proj_bsize);    // set for backward
 
         // dO(batch*h, seqlen_L, embed_dim/h) x V(batch*h, seq_length_S, embed_dim/h)^T
         ROCBLAS_EXECUTE_FUNC(rocblas_gemm_batched_ex, rocblas_handle, 
@@ -1392,7 +1408,7 @@ public:
         void* ds_buffer = ds_offset + (char*)workspace;
         void* attn_reservespace = (char*)reservespace;
         MIOPEN_EXECUTE_FUNC_V(miopenDropoutBackward, miopen_handle, attnDropoutDesc, 
-                nullptr, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer, 
+                midtensor_desc, midtensor_desc, ds_buffer, midtensor_desc, ds_buffer, 
                 attn_reservespace, attn_reserve_size);
 
         void* mid_tensor_s = (char*)workspace + mid_s_offset;

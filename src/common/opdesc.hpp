@@ -648,10 +648,6 @@ struct multi_head_attn_desc_t {
 	size_t workSpaceSizeInBytes;
 	size_t weightSizeInBytes;
 
-    void* weightspace = nullptr;
-    void* workspace = nullptr;
-    void* reservespace = nullptr;
-
     // miopen
     void* attnDropoutDesc;
     void* postDropoutDesc;
@@ -684,7 +680,7 @@ struct op_desc_t {
         zero_pad_desc_t zero_pad;
         reduction_desc_t reduction;
         sdpa_desc_t sdpa;
-        sdpa_desc_t multi_head_attn;
+        multi_head_attn_desc_t multi_head_attn;
     };
 
 #define DECL_CTOR_AND_CONVERTERS(c_type) \
